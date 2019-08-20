@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 """
 Created on Tue Aug 20 10:06:39 2019
 
@@ -38,7 +38,7 @@ face_cascade = cv.CascadeClassifier(PATH_TO_FACE_FILTER)
 # load the inference graph for hand detector
 detection_graph = tf.Graph()
 with detection_graph.as_default():
-  od_graph_def = tf.GraphDef()
+  od_graph_def = tf.compat.v1.GraphDef()
   with tf.io.gfile.GFile(PATH_TO_FROZEN_GRAPH, "rb") as fid:
     serialized_graph = fid.read()
     od_graph_def.ParseFromString(serialized_graph)
@@ -129,7 +129,7 @@ aspect_ratio = h/w
 h_pre,w_pre = 0,0
 
 with detection_graph.as_default():
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         
         # ---------------------------------------------------------------------
         # build computation graph
