@@ -3,9 +3,9 @@ FROM ubuntu:18.04
 LABEL maintainer="axeh (elvira.bozileva@gmail.com)"
 
 # copy contents of the current dir (on host) to container
-RUN mkdir /home/tentacle_beard
-COPY . /home/tentacle_beard
-WORKDIR /home/tentacle_beard
+RUN mkdir /home/img_processing_projects
+COPY . /home/img_processing_projects
+WORKDIR /home/img_processing_projects
 
 # fix X Error (OpenCV's cv.imshow error)
 ENV QT_X11_NO_MITSHM=1
