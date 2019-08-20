@@ -26,6 +26,7 @@ RUN pip3 install argparse
 RUN pip3 install matplotlib
 RUN pip3 install opencv-python
 RUN pip3 install dlib
+RUN pip3 install tensorflow==1.14.0
 #RUN pip3 install numpy
 
 
