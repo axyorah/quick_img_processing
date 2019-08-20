@@ -48,7 +48,7 @@ with detection_graph.as_default():
 # useful functions
 def build_computation_graph():
     # build computation graph
-    ops = tf.get_default_graph().get_operations()
+    ops = tf.compat.v1.get_default_graph().get_operations()
     all_tensor_names = {output.name for op in ops 
                                     for output in op.outputs}
     tensor_dict = {}
@@ -58,8 +58,8 @@ def build_computation_graph():
         tensor_name = key + ':0'
         
         if tensor_name in all_tensor_names:
-            tensor_dict[key] = tf.get_default_graph().\
-                                  get_tensor_by_name(tensor_name)
+            tensor_dict[key] = tf.compat.v1.get_default_graph().\
+                                            get_tensor_by_name(tensor_name)
         
     # get detection boxes
     if 'detection_boxes' in tensor_dict:
