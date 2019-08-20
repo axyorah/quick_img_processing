@@ -10,6 +10,9 @@ WORKDIR /home/img_processing_projects
 # fix X Error (OpenCV's cv.imshow error)
 ENV QT_X11_NO_MITSHM=1
 
+# toggle XLA flag for tensorflow
+ENV TF_XLA_FLAGS=--tf_xla_cpu_global_jit
+
 # get python and pip
 RUN apt-get update && apt-get install -y python3 python3-pip 
 
@@ -27,7 +30,7 @@ RUN pip3 install matplotlib
 RUN pip3 install opencv-python
 RUN pip3 install dlib
 RUN pip3 install tensorflow==1.14.0
-#RUN pip3 install numpy
+RUN pip3 install numpy==1.14.0
 
 
 
