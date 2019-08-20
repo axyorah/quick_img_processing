@@ -29,8 +29,8 @@ from imutils.video import VideoStream
 import argparse
 import time
 
-from tentacle_utils.simple_tentacle import SimpleTentacle
-from tentacle_utils.perlin_flow import PerlinFlow
+from utils.simple_tentacle import SimpleTentacle
+from utils.perlin_flow import PerlinFlow
 
 #%% ---------------------------------------------------------------------
 parser = argparse.ArgumentParser()
