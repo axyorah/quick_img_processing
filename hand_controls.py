@@ -72,8 +72,8 @@ def build_computation_graph():
                                    [0, 0], 
                                    [real_num_detection, -1])
     
-    image_tensor = tf.get_default_graph().\
-                      get_tensor_by_name('image_tensor:0')
+    image_tensor = tf.compat.v1.get_default_graph().\
+                                get_tensor_by_name('image_tensor:0')
     return image_tensor, tensor_dict
 
 def get_hand_masks(tensor_dict, frame, threshold=0.5,
