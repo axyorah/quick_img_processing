@@ -118,6 +118,14 @@ def get_hand_masks(tensor_dict, frame, threshold=0.5,
         cv.imshow("handmask", handmask)
         
     return bboxes
+
+def squarify_bbox(bbox, w,h):
+    y1,x1,y2,x2 = bbox
+    ym,xm = (y1+y2)//2, (x1+x2)//2 # center of bbox
+    dy,dx = (y2-y1)//2, (x2-x1)//2 # half height and half width of bbox
+    
+    return max(ym - dy, 0), max(xm - dx, 0), min(ym + dy, h), min(xm + dx, w)
+    
     
 def get_custom_pattern(path):
     # get raw vertice coordinates of a custom pattern
@@ -302,6 +310,8 @@ with detection_graph.as_default():
             bboxes = get_hand_masks(tensor_dict, frame, threshold=0.8,
                                     show_bbox=int(args["show_hand_bbox"]),
                                     show_mask=int(args["show_hand_mask"]))
+            
+            
             
             # ----------------------------------------------------------------- 
             # draw the pattern around hands
