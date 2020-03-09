@@ -123,8 +123,9 @@ def squarify_bbox(bbox, w,h):
     y1,x1,y2,x2 = bbox
     ym,xm = (y1+y2)//2, (x1+x2)//2 # center of bbox
     dy,dx = (y2-y1)//2, (x2-x1)//2 # half height and half width of bbox
+    dd = max(dy,dx)
     
-    return max(ym - dy, 0), max(xm - dx, 0), min(ym + dy, h), min(xm + dx, w)
+    return max(ym - dd, 0), max(xm - dd, 0), min(ym + dd, h), min(xm + dd, w)
     
     
 def get_custom_pattern(path):
@@ -311,7 +312,13 @@ with detection_graph.as_default():
                                     show_bbox=int(args["show_hand_bbox"]),
                                     show_mask=int(args["show_hand_mask"]))
             
-            
+            # -----------------------------------------------------------------
+            # identify hand gesture on each hand mask
+            for bbox in bboxes:
+                square_bbox = squarify_bbox(bbox, w, h)
+                y1,x1,y2,x2 = square_bbox
+                square_hand = frame[y1:y2,x1:x2]
+                print(square_hand.shape)
             
             # ----------------------------------------------------------------- 
             # draw the pattern around hands
