@@ -116,14 +116,14 @@ color_base     = [(np.random.randint(100,200), np.random.randint(100,230), 0)
 thickness_base = [8 * 0.95**i for i in range(max_seg)]
 
 # start video stream
-vs = VideoStream(src=0).start()
+vc = cv.VideoCapture(0)
 time.sleep(2)
 
 idx = 0 # will be used to sample perlin mtx
 prev_faces = None # will be used to smoothen frame transitions
 frame_width = 500
 while True:
-    frame = vs.read()
+    _, frame = vc.read()
     frame = imutils.resize(frame, width=frame_width)
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     
@@ -233,6 +233,6 @@ while True:
     key = cv.waitKey(1) & 0xFF
     if key == ord("q"):
         break
-
+vc.release()
 cv.destroyAllWindows()
-vs.stop()
+
