@@ -2,9 +2,9 @@
 """
 Created on Fri Jan 31 22:03:36 2020
 
-@author: elvir
+@author: axeh
 """
-
+import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 from utils.perlin_flow import PerlinFlow
