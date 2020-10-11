@@ -43,7 +43,7 @@ with detection_graph.as_default():
     serialized_graph = fid.read()
     od_graph_def.ParseFromString(serialized_graph)
     tf.import_graph_def(od_graph_def, name="")
-    
+
 #%% ---------------------------------------------------------------------------
 # useful functions
 def build_computation_graph():
@@ -52,26 +52,26 @@ def build_computation_graph():
     all_tensor_names = {output.name for op in ops 
                                     for output in op.outputs}
     tensor_dict = {}
-        
+
     for key in ['num_detections', 'detection_boxes', 
                 'detection_scores','detection_classes']:
         tensor_name = key + ':0'
-        
+
         if tensor_name in all_tensor_names:
             tensor_dict[key] = tf.compat.v1.get_default_graph().\
                                             get_tensor_by_name(tensor_name)
-        
+
     # get detection boxes
     if 'detection_boxes' in tensor_dict:
         detection_boxes = tf.squeeze(tensor_dict['detection_boxes'], [0])
-            
+
         # Reframe is required to translate mask from box coordinates to image coordinates and fit the image size.
         real_num_detection = tf.cast(tensor_dict['num_detections'][0], 
                                      tf.int32)
         detection_boxes = tf.slice(detection_boxes, 
                                    [0, 0], 
                                    [real_num_detection, -1])
-    
+
     image_tensor = tf.compat.v1.get_default_graph().\
                                 get_tensor_by_name('image_tensor:0')
     return image_tensor, tensor_dict
@@ -81,14 +81,14 @@ def get_hand_masks(tensor_dict, frame, threshold=0.5,
     # convert BGR (opencv default) to RGB and add batch dimension
     frame4d = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
     frame4d = np.expand_dims(frame4d, axis=0)
-    
+
     # run inference to get hand detections
     output_dict = sess.run(tensor_dict, 
                            feed_dict={image_tensor: frame4d})
     output_dict['num_detections'] = int(output_dict['num_detections'][0])
     output_dict['detection_boxes'] = output_dict['detection_boxes'][0]
     output_dict['detection_scores'] = output_dict['detection_scores'][0]
-    
+
     # iterate over the detections to get hand masks
     handmask = np.zeros(frame.shape)
     for box,score in zip(output_dict["detection_boxes"],
@@ -100,14 +100,14 @@ def get_hand_masks(tensor_dict, frame, threshold=0.5,
         # box is arranged as (ymin,xmin,ymax,xmax) [0,1]
         y1,x1,y2,x2 = (box * np.array([h,w,h,w])).astype(int)
         handmask[y1:y2,x1:x2,:] = 255
-        
-        # show additional info if requested        
+
+        # show additional info if requested
         if show_bbox:
             cv.rectangle(frame, (x1,y1), (x2,y2), (0,0,255), 2)
-            
+
     if show_mask:
-        cv.imshow("handmask", handmask)        
-        
+        cv.imshow("handmask", handmask)
+
     return handmask
 
 #%% ---------------------------------------------------------------------------
@@ -130,42 +130,42 @@ h_pre,w_pre = 0,0
 
 with detection_graph.as_default():
     with tf.compat.v1.Session() as sess:
-        
+
         # ---------------------------------------------------------------------
         # build computation graph
         image_tensor, tensor_dict = build_computation_graph()
-    
+
         # ---------------------------------------------------------------------
         # capture/process frames from the video stream
         while True:
             frame = vs.read()
             frame = cv.resize(frame, (width, int(width * aspect_ratio)))
-            frame = cv.flip(frame, 1)       
+            frame = cv.flip(frame, 1)
             gray  = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
             h,w   = frame.shape[:2]
-            
+
             # ----------------------------------------------------------------- 
-            # run inference to get hand masks   
+            # run inference to get hand masks
             handmask = get_hand_masks(tensor_dict, frame, threshold=0.5,
                                       show_bbox=int(args["show_hand_bbox"]),
                                       show_mask=int(args["show_hand_mask"]))
-            
+
             # -----------------------------------------------------------------
             # draw buttons
             frame, buttons = add_buttons(frame)
-            
+
             # resample the button masks if frame dimensions have changed
             if (h_pre,w_pre) != (h,w):
                 masks = get_button_masks(frame, buttons)
-                
+
             # -----------------------------------------------------------------    
             # check if any of the buttons overlaps with a hand
             for name in buttons.keys():
                 overlap  = cv.bitwise_and(handmask,handmask,mask=masks[name])
-                                
+
                 if np.sum(overlap) / np.sum(masks[name]) > 0.75:
                     width, blur = buttons[name].action([width, blur])
-                
+
             # -----------------------------------------------------------------
             # update vars affected by button controls
             width = np.clip(width, 200, 1000)
@@ -175,9 +175,9 @@ with detection_graph.as_default():
             
             # get face bbox and update face blur
             faces = face_cascade.detectMultiScale(gray, 1.3, 5)
-            for (x,y,w,h) in faces:    
+            for (x,y,w,h) in faces:
                 frame = blur_box(frame, (x,y), (x+w,y+h), k, sigma)
-                   
+
             # -----------------------------------------------------------------
             # display final frame
             cv.imshow("press 'q' to quit",  frame)
@@ -185,6 +185,6 @@ with detection_graph.as_default():
             stopkey = cv.waitKey(1)
             if stopkey == ord("q"):
                 break
-    
+
 cv.destroyAllWindows()
 vs.stop()    
