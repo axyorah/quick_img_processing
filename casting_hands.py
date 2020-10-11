@@ -7,7 +7,8 @@ Created on Tue Aug 20 10:06:39 2019
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model, Model
+from tensorflow.keras import layers as L
 import cv2 as cv
 import imutils
 from imutils.video import VideoStream
@@ -49,7 +50,27 @@ with detection_graph.as_default():
     
 #%% ---------------------------------------------------------------------------
 # load inference model for hand gesture classifier
-gesture_model = load_model("dnn/hand_gestures_model_conv_bn_same256.h5")
+"""
+def make_simple_cnn(input_shape, output_shape, filters=[32, 64, 128]):
+    inpt = L.Input(shape=input_shape)
+    x = inpt
+    
+    for f in filters:
+        x = L.Conv2D(f, (3,3), strides=1, padding='same', activation='relu')(x)
+        x = L.BatchNormalization()(x)
+        x = L.MaxPool2D((2,2), strides=2)(x)
+        x = L.Dropout(0.5)(x)
+        
+    x = L.Flatten()(x)
+    x = L.Dense(2*filters[-1], activation='relu')(x)
+    x = L.Dense(output_shape, activation='softmax')(x)
+    
+    return Model(inputs=inpt, outputs=x)
+gesture_model = make_simple_cnn((28,28,3), 5)
+gesture_model.load_weights("dnn/hand_gestures_weights_conv_bn_same256.h5")
+gesture_model.predict(np.random.rand(1,28,28,3))
+gesture_model._make_predict_function()
+"""
     
 #%% ---------------------------------------------------------------------------
 # useful functions
@@ -314,12 +335,29 @@ with detection_graph.as_default():
             
             # -----------------------------------------------------------------
             # identify hand gesture on each hand mask
-            for bbox in bboxes:
+            """
+            square_hands = np.zeros((len(bboxes),28,28,3))
+            preds = 2*np.ones((len(bboxes),)) # class 2 corresponds to `other` (no pattern)
+            for ibox,bbox in enumerate(bboxes):
                 square_bbox = squarify_bbox(bbox, w, h)
                 y1,x1,y2,x2 = square_bbox
-                square_hand = frame[y1:y2,x1:x2]
-                print(square_hand.shape)
+                                
+                # prepare for gesture classifier
+                square_hand = gray[y1:y2,x1:x2]
+                square_hand = cv.resize(square_hand, (28,28))
+                square_hand = square_hand / 255.
+                square_hand = np.stack([square_hand, square_hand, square_hand],
+                                        axis=2).astype('float32')                
+                square_hands[ibox] = square_hand
             
+            print(square_hands.shape)
+            print(gesture_model.predict_function([np.random.rand(1,28,28,3)]))
+            if len(bboxes):  
+                x = np.random.rand(1,28,28,3)
+                #gesture_model._make_predict_function()
+                #preds = gesture_model.predict(x)#square_hands)
+                preds = gesture_model.predict_function([x])
+            """
             # ----------------------------------------------------------------- 
             # draw the pattern around hands
             add_pattern(frame, pattern1, bboxes, fill=True)
