@@ -359,8 +359,10 @@ class JutsuPatternEffect:
 if __name__ == '__main__':
     w,h, rad = 640, 480, 50
     img = 255 * np.ones((h, w, 3), dtype=int)
-    cv.imwrite("dummy_img.jpg", img)
-    img = cv.imread("dummy_img.jpg") # now it's cv::UMat
+
+    DUMMY_PATH = "./imgs/dummy_img.jpg" if os.path.isdir("./imgs") else "../imgs/dummy_img.jpg"
+    cv.imwrite(DUMMY_PATH, img)
+    img = cv.imread(DUMMY_PATH) # now it's cv::UMat
 
     hand_pattern = HandPatternEffect()
     pt1, pt2 = (w//2-rad, h//2-rad), (w//2+rad, h//2+rad)
