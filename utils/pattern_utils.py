@@ -4,10 +4,14 @@ Created on Fri Jan 31 22:03:36 2020
 
 @author: axeh
 """
+import os
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
-from utils.perlin_flow import PerlinFlow
+try:
+    from utils.perlin_flow import PerlinFlow
+except:
+    from perlin_flow import PerlinFlow
 
 
 def rotate(vecs: np.ndarray, angle: float):
@@ -142,7 +146,9 @@ class FistPatternEffect:
         self.patterns = [self.redpattern] + self.starpatterns
         
     def get_red(self):
-        with open("./utils/custom_pattern.txt", "r") as f:
+        RED_PATH = "./utils/custom_pattern.txt" if os.path.isfile("./utils/custom_pattern.txt") \
+            else "./custom_pattern.txt"
+        with open(RED_PATH, "r") as f:
             xy = []
             lines = f.read().splitlines()
             for line in lines:
@@ -190,7 +196,7 @@ class FistPatternEffect:
                 
                 
 class HandPatternEffect:
-    def __init__(self):        
+    def __init__(self):
         self.scale0 = 0.5
         self.center = np.array([[0,0]])
         self.perlin = PerlinFlow().get_perlin()
@@ -309,7 +315,8 @@ class JutsuPatternEffect:
         self.detectionthreshold = 5
         
     def load_frames(self):
-        self.kabooms = [cv.imread(f"./imgs/transp_kaboom{i}.png")
+        KABOOM_DIR = "imgs" if os.path.isdir("imgs") else os.path.join("..", "imgs")
+        self.kabooms = [cv.imread(os.path.join(KABOOM_DIR, f"transp_kaboom{i}.png"))
                         for i in range(1,12)]
         h,w = self.kabooms[0].shape[:2]
         self.masks = [np.zeros((h,w), dtype=np.uint8) 
@@ -340,7 +347,7 @@ class JutsuPatternEffect:
                 kaboom = self.kabooms[self.ongoingframe]
                 mask = self.masks[self.ongoingframe]
                 self.ongoingframe += 1
-                cv.copyTo(kaboom, mask, frame)                
+                cv.copyTo(kaboom, mask, frame)
             else:
                 self.isongoing = False
                 self.ongoingframe = 0
@@ -350,4 +357,16 @@ class JutsuPatternEffect:
   
 #%%    
 if __name__ == '__main__':
-    pass
+    w,h, rad = 640, 480, 50
+    img = 255 * np.ones((h, w, 3), dtype=int)
+    cv.imwrite("dummy_img.jpg", img)
+    img = cv.imread("dummy_img.jpg") # now it's cv::UMat
+
+    hand_pattern = HandPatternEffect()
+    pt1, pt2 = (w//2-rad, h//2-rad), (w//2+rad, h//2+rad)
+    hand_pattern.draw_pattern(img, pt1, pt2)
+
+    cv.imshow("press 'q' to quit", img)
+    key = cv.waitKey(5000)
+    if key == ord('q'):
+        cv.destroyAllWindows()
