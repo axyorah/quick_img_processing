@@ -68,7 +68,7 @@ class SimpleTentacle:
         # get teh angles between segments
         angles_between_segments = \
             max_angle_between_segments * \
-            np.sin(angle_freq * np.linspace(0,2*np.pi,self.num_joints) + 
+            np.sin(angle_freq * np.linspace(0,2*np.pi,self.num_joints) +
                    angle_phase_shift) * \
             np.tanh(np.linspace(0,10,self.num_joints) + 1)
         # tanh modifier is a fugly patch to ensure that
@@ -102,9 +102,8 @@ class SimpleTentacle:
                              np.array(root).reshape(2,1)
 
         return joints
-    
-    
-    
+
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from perlin_flow import PerlinFlow
@@ -143,13 +142,7 @@ if __name__ == "__main__":
                     angle_freq=1*perlin_random,
                     angle_phase_shift=2*np.pi*perlin_random
                     )
-            plt.plot(tentacle[0,:], tentacle[1,:], 'o-', c=(0,0,0)) 
+            plt.plot(tentacle[0,:], tentacle[1,:], 'o-', c=(0,0,0))
         plt.xlim([-7,7])
         plt.ylim([-7,7])
         plt.pause(0.001)
-            
-        
-        
-        
-        
-    
