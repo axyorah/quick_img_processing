@@ -3,8 +3,6 @@
 """
 Created on Wed Sep 23 21:27:23 2020
 
-template is taken from:
-    https://www.learnopencv.com/training-a-custom-object-detector-with-dlib-making-gesture-controlled-applications/?ck_subscriber_id=546165186
 @author: axeh
 """
 import tensorflow as tf
@@ -32,8 +30,6 @@ else:
 #%% load detectors
 tf.keras.backend.clear_session()
 detect_fn = tf.saved_model.load(DETECTOR_DIR)
-colors = [(np.random.randint(0,255),np.random.randint(0,255), np.random.randint(0,255))
-          for _ in range(3)]
 classes = ["hand", "fist", "teleportation_jutsu"]
 
 #%% define class effects
@@ -47,13 +43,7 @@ cv.namedWindow("frame")
 w,h = 640, 480
 
 # initialize web cam
-cap = cv.VideoCapture(0)#, cv.CAP_DSHOW)
-
-# initially the size of the hand and its center's x coor will be at 0
-#(MR: we're using sliding windows...)
-size, center_x = 0,0
-
-st = time.time()
+cap = cv.VideoCapture(0)
 
 # start video capture
 while True:
@@ -66,9 +56,6 @@ while True:
     # flip the frame
     frame = cv.resize(frame, (w,h))
     frame = cv.flip(frame, 1)
-    
-    # create a copy of the frame
-    copy = frame.copy()
 
     # convert to right format
     input_tensor = np.expand_dims(frame, axis=0)
@@ -78,15 +65,16 @@ while True:
     detections = detect_fn(input_tensor)
     
     jutsu_detected = False
-    jutsu_pt1, jutsu_pt2 = (None,None), (None,None)
+    jutsu_pt1, jutsu_pt2 = (None,None), (None,None) #TODO: make explosion appear from the center of the box
     for box,clss,score in zip(detections["detection_boxes"][0], # 0-dim - batch
                               detections["detection_classes"][0],
                               detections["detection_scores"][0]):
         box = box.numpy()
-        clss = clss.numpy().astype(np.uint32)# + label_id_offset
+        clss = clss.numpy().astype(np.uint32) # 1,2,3... (0 is skipped)
         score = score.numpy()
 
         # detections are sorted based on scores in descending order
+        # stop when score drops below threshold (0.5)
         if score < 0.5:
             break
 
