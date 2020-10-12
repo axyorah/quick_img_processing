@@ -29,7 +29,7 @@ RUN pip3 install argparse==1.1
 RUN pip3 install matplotlib=3.1.3
 RUN pip3 install opencv-python==4.4.0
 RUN pip3 install dlib==19.21.0
-RUN pip3 install tensorflow==2.3.0
+RUN pip3 install tensorflow==2.3.1
 RUN pip3 install numpy==1.17.2
 
 
