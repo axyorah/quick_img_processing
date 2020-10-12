@@ -121,27 +121,37 @@ Here's a brief description of the available projects.
 
 ## 2. Requirements
 Your device should have a functioning camera and [python 3](https://www.python.org/download/releases/3.0/) installed. </br>
-Ideally you'd want to run this (any) project from a [docker](https://www.docker.com/) container (see below the instructions for setting up a container). But if you're feeling adventurous, you can take care of all the dependencies manually.
+Ideally you'd want to run this project from a [docker](https://www.docker.com/) container (see below the instructions for setting up a container). But if you're feeling adventurous, you can take care of all the dependencies manually.
 
 ### Dependencies
 ```
-$ pip3 install imutils
-$ pip3 install argparse
-$ pip3 install matplotlib
-$ pip3 install opencv-python
-$ pip3 install dlib
-$ pip3 install tensorflow==1.14.0
-$ pip3 install numpy==1.14.0
+imutils
+argparse
+matplotlib
+opencv-python
+dlib
+tensorflow
+numpy
+```
+To install the dependencies either run:
+
+```
+$ pip3 install <dependency>
 ```
 
-To install `dlib` on Windows use this wheel:
+or first copy `requirements.txt` by running
+```
+$ wget https://github.com/axyorah/quick_img_processing/requirements.txt
+```
+and then run
+```
+$ pip3 install -r requirements.txt
+```
+
+If you're having problems installing `dlib` on Windows try this wheel:
 ```
 pip install https://pypi.python.org/packages/da/06/bd3e241c4eb0a662914b3b4875fc52dd176a9db0d4a2c915ac2ad8800e9e/dlib-19.7.0-cp36-cp36m-win_amd64.whl#md5=b7330a5b2d46420343fbed5df69e6a3f
 ```
-
-Take care to install `tensorflow` version 1.14.0 or above, as the inference graph for the hand detector in `hand_controls.py` will give errors with the earlier versions of tensorflow.
-
-Downgrading `numpy` to version 1.14.0 is not really necessary (yet!), but it will save you a headache of scrolling through the deprecation warnings.
 
 ### Dependencies of dependencies
 To compile `dlib` you need to have [cmake](https://cmake.org/) and C++ compiler.</br>

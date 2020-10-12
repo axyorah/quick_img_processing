@@ -25,12 +25,12 @@ RUN apt-get install -y libsm6 libxext6 libxrender-dev
 
 # get all python dependencies
 RUN pip3 install imutils
-RUN pip3 install argparse
-RUN pip3 install matplotlib
-RUN pip3 install opencv-python
-RUN pip3 install dlib
-RUN pip3 install tensorflow==1.14.0
-RUN pip3 install numpy==1.14.0
+RUN pip3 install argparse==1.1
+RUN pip3 install matplotlib=3.1.3
+RUN pip3 install opencv-python==4.4.0
+RUN pip3 install dlib==19.21.0
+RUN pip3 install tensorflow==2.3.0
+RUN pip3 install numpy==1.17.2
 
 
 
