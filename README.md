@@ -124,6 +124,7 @@ Your device should have a functioning camera and [python 3](https://www.python.o
 Ideally you'd want to run this project from a [docker](https://www.docker.com/) container (see below the instructions for setting up a container). But if you're feeling adventurous, you can take care of all the dependencies manually.
 
 ### Dependencies
+This project uses the following python packages:
 ```
 imutils
 argparse
@@ -133,19 +134,19 @@ dlib
 tensorflow
 numpy
 ```
-To install the dependencies either run:
+To install the dependencies either for each `<dependency>` listed above run:
 
 ```
-$ pip3 install <dependency>
+$ pip install <dependency>
 ```
 
 or first copy `requirements.txt` by running
 ```
-$ wget https://github.com/axyorah/quick_img_processing/requirements.txt
+$ wget https://raw.githubusercontent.com/axyorah/quick_img_processing/master/requirements.txt
 ```
 and then run
 ```
-$ pip3 install -r requirements.txt
+$ pip install -r requirements.txt
 ```
 
 If you're having problems installing `dlib` on Windows try this wheel:
