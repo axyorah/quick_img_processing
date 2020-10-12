@@ -305,6 +305,7 @@ class HandPatternEffect:
             
 class JutsuPatternEffect:
     def __init__(self):
+        self.fade = 5 # num of kaboom frames that gradually fade
         self.load_frames()
         self.isongoing = False
         self.ongoingframe = 0
@@ -317,11 +318,13 @@ class JutsuPatternEffect:
     def load_frames(self):
         KABOOM_DIR = "imgs" if os.path.isdir("imgs") else os.path.join("..", "imgs")
         self.kabooms = [cv.imread(os.path.join(KABOOM_DIR, f"transp_kaboom{i}.png"))
-                        for i in range(1,12)]
+                        for i in range(1,20)]
         h,w = self.kabooms[0].shape[:2]
         self.masks = [np.zeros((h,w), dtype=np.uint8) 
                       for _ in range(len(self.kabooms))]
-        for mask, kaboom in zip(self.masks, self.kabooms):
+        
+        for num, (mask, kaboom) in enumerate(zip(self.masks, self.kabooms)):
+            #fadedegree = max(0, self.fade - (len(self.kabooms) - num) + 1) / self.fade # applying fade is moved to `draw_pattern`
             for i in range(h):
                 for j in range(w):
                     if kaboom[i][j][0] == 204 and \
@@ -329,7 +332,7 @@ class JutsuPatternEffect:
                        kaboom[i][j][2] == 51:
                         mask[i][j] = 0
                     else:
-                        mask[i][j] = 255
+                        mask[i][j] = 255 # int(255 * (1 - fadedegree)) # applying fade is moved to `draw_pattern`
         
     def draw_pattern(self, frame, detected, pt1=(None,None), pt2=(None,None)):
         self.detectionque.pop(0)
@@ -344,10 +347,21 @@ class JutsuPatternEffect:
             
         if self.isongoing:
             if self.ongoingframe < self.duration:
+                # get get correct kaboom img and corresponding mask
                 kaboom = self.kabooms[self.ongoingframe]
-                mask = self.masks[self.ongoingframe]
+                mask = self.masks[self.ongoingframe]                
+                
+                # overlay kaboom with current frame with correct mask and slow kaboom fade at the end
+                # without the fade we could've also use:
+                # cv.copyTo(kaboom, mask, frame)
+                # but to do the correct fading we need to use the intermediate `combined`:
+                fadedegree = max(0, self.fade - (self.duration - self.ongoingframe) + 1) / self.fade # fade of kaboom
+                combined = frame.copy()
+                cv.copyTo(kaboom, mask, combined)
+                cv.addWeighted(combined, 1 - fadedegree, frame, fadedegree, 0, frame)
+
+                # increment the kaboom animation frame count
                 self.ongoingframe += 1
-                cv.copyTo(kaboom, mask, frame)
             else:
                 self.isongoing = False
                 self.ongoingframe = 0
