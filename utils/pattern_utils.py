@@ -132,7 +132,7 @@ class FistPatternEffect:
         self.perlin = PerlinFlow().get_perlin()
         self.perlin_idx = np.random.choice(self.perlin.shape[0])
         
-        self.scale0 = 0.5
+        self.scale0 = 0.75
         self.n_stars = 10
         self.rad_stars = 0.3
         self.star_dist_from_center = 1.
