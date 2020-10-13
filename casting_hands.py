@@ -35,8 +35,7 @@ classes = ["hand", "fist", "teleportation_jutsu"]
 #%% define class effects
 fistpattern = FistPatternEffect()
 handpattern = HandPatternEffect()
-jutsupattern = JutsuPatternEffect()
-        
+jutsupattern = JutsuPatternEffect()        
 
 #%% start video capture
 cv.namedWindow("frame")
@@ -47,8 +46,7 @@ cap = cv.VideoCapture(0)
 
 # start video capture
 while True:
-    ret,frame = cap.read()
-    
+    ret,frame = cap.read()    
     
     if not ret:
         break
@@ -61,7 +59,8 @@ while True:
     input_tensor = np.expand_dims(frame, axis=0)
     input_tensor = tf.convert_to_tensor(input_tensor, dtype=tf.uint8)
     
-    # get detections
+    # get detections for current frame
+    #(will always make 100 detections sorted by object probability score)
     detections = detect_fn(input_tensor)
     
     jutsu_detected = False
@@ -70,10 +69,10 @@ while True:
                               detections["detection_classes"][0],
                               detections["detection_scores"][0]):
         box = box.numpy()
-        clss = clss.numpy().astype(np.uint32) # 1,2,3... (0 is skipped)
+        clss = clss.numpy().astype(np.uint32) # 1,2,3... (0 is reserved for background)
         score = score.numpy()
 
-        # detections are sorted based on scores in descending order
+        # detections are sorted based on object probability scores in descending order;
         # stop when score drops below threshold (0.5)
         if score < 0.5:
             break
@@ -81,12 +80,17 @@ while True:
         # get box coordinates
         y1,x1,y2,x2 = (box*np.array([h,w,h,w])).astype(int)
         
-        # Recall: class indices start from `1` (`0` is reserved for background)
+        # Recall: class indices start from 1 (0 is reserved for background)
         if classes[clss-1] == "hand":
             handpattern.draw_pattern(frame, (x1,y1), (x2,y2))
         elif classes[clss-1] == "fist":
             fistpattern.draw_pattern(frame, (x1,y1), (x2,y2))            
         elif classes[clss-1] == "teleportation_jutsu":
+            # we can't afford many false-positives for teleportation_jutsu
+            # as each detection would trigger 20-frames-long uninterruptible animation;
+            # so let's store bollean `jutsu_detected` over the last 10 frames
+            # and show the animation only if 5/10 frames had `jutsu_detected=True`
+            #(this is resolved in JutsuPatternEffect.draw_pattern())
             jutsu_detected = True
             justu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)    
     jutsupattern.draw_pattern(frame, jutsu_detected, jutsu_pt1, jutsu_pt2)
