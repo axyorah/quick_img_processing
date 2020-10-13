@@ -142,7 +142,7 @@ Here's a brief description of the available projects.
             <ul>
                 <li> <b>Dataset</b>. Amazing people from <a href="https://www.learnopencv.com/">LearnOpenCV</a> 
                 posted a great tutorial on training a <a href="https://www.learnopencv.com/histogram-of-oriented-gradients/">HOG</a>-based object detector 
-                and shared a code for creating a hand gesture dataset that doesn't require any manual labeling. That was a huge help, as fixing labels and bounding boxes for any reasonably sized dataset is a truly daunting task. I used this code to create a dataset with three classes 
+                and shared a code for creating a hand gesture dataset that doesn't require any manual labeling. That was a huge help, as fixing labels and bounding boxes for any reasonably sized dataset really is a daunting task. I used this code to create a dataset with three classes 
                 and roughly 2700 images for each class 
                 (will probably share it in a separate supplementary repo later).                
                 </li> 
@@ -158,13 +158,13 @@ Here's a brief description of the available projects.
                     <ul>
                         <li> Open Palm effect is made from several individually rotating polygons. The rotation angle for each polygon is sampled from Perlin matrix. Check the code at <code>utils.pattern_utils.Pattern</code>, <code>utils.pattern_utils.Polygon</code> and <code>utils.pattern_utils.HandPatternEffect</code>. (I will probably add a more detailed description at some point in the future)
                         </li>
-                        <li> Fist effect is similar to Open Palm effect, just instead of polygons it uses precalculated vertices. On each frame the pattern for for fist effect rotates around its center about the angle sampled from Perlin matrix.
+                        <li> Fist effect is similar to Open Palm effect, just instead of polygons it uses precalculated vertices. On each frame the pattern for fist effect rotates around its center about the angle sampled from Perlin matrix.
                         Check the code at <code>utils.pattern_utils.FistPatternEffect</code>.
                         </li>
                         <li> Puff of smoke for Teleportation Jutsu is made by following <a href="https://github.com/ssloy/tinykaboom">this</a> tutorial 
                         by <a href="https://github.com/ssloy">Dmitry Sokolov</a>. 
                         In short - explosion is a sphere "wrapped" into a Perlin noise with all the lights and shadows calculated with the help of a 
-                        simplified ray tracer. Puffs of smoke are not calculated on the fly (that's very computationally expensive). Instead some premade  explosion images (<code>imgs/transp_kaboomX.png</code>) are loaded at the beginning of the script and added on top of the current frame whenever 5 out of 10 last frames had teleportation jutsu detections. 
+                        simplified ray tracer. Puffs of smoke are not calculated on the fly (that would be very computationally expensive). Instead some premade  explosion images (<code>imgs/transp_kaboomX.png</code>) are loaded at the beginning of the script and added on top of the current frame whenever 5 out of 10 last frames had teleportation jutsu detections. 
                         Check the code at <code>utils.pattern_utils.JutsuPatternEffect</code>.
                         </li>
                     </ul>
@@ -236,24 +236,29 @@ $ git clone https://github.com/axyorah/quick_img_processing.git
 
 With all the dependencies taken care of, you can tentaclify yourself by navigating to the directory, to which you have copied the contents of this repo, and running:
 ```
-$ python3 tentacle_beard.py
+$ python tentacle_beard.py
 ```
 
 You can regulate the degree of "wiggliness" of the tentacles through `-w` parameter, e.g.:
 ```
-$ python3 tentacle_beard.py -w 0.3
+$ python tentacle_beard.py -w 0.3
 ```
 
 Similarly, you can invoke the power of hand controls by running:
 
 ```
-$ python3 hand_controls.py
+$ python hand_controls.py
 ```
 
 Passing `-b 1` parameter will additionally draw bounding boxes around the hands (just like in the demo):
 
 ```
-$ python3 hand_controls.py -b 1
+$ python hand_controls.py -b 1
+```
+
+To try the DnD enhancer simply run:
+```
+$ python casting_hands.py
 ```
 
 
