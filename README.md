@@ -111,6 +111,67 @@ Here's a brief description of the available projects.
             </ul>
         </td>
     </tr>
+    <tr>
+        <td width="33%">
+            <img align=left width=300 src="imgs/casting_hands_ver.gif"></img>
+        </td>
+        <td style="text-align:left">
+            <b>DnD Enhancer</b>
+            <br>
+            <br>         
+            Has 2020  disrupted your DnD sessions and you had to migrate to Skype? 
+            Well, at least you use some image processing magic to make DnD magic feel more lively....
+            As long as you're ok with casting spells by means of waving hand signs, of course.
+            <br>
+            <br>    
+            I trained object classifier on three classes of hand gestures 
+            and added some animatted patterns which are triggered by corresponding class detections:
+            <ul>
+                <li> Open Palm triggers generic spell effect. 
+                </li>
+                <li> Fist triggers some crowd control: 
+                You cast <a href="https://roll20.net/compendium/dnd5e/Dominate%20Person#content">Dominate Person</a>! 
+                It's super effective!
+                </li>
+                <li> <a href="https://naruto.fandom.com/wiki/Body_Flicker_Technique">Teleportation Jutsu</a> 
+                creates a puff of smoke: Poof! You cast <a href="https://roll20.net/compendium/dnd5e/Misty%20Step#content">Misty Step</a>!
+                </li>
+            </ul>
+            <br>
+            Here are some technicalities:
+            <ul>
+                <li> <b>Dataset</b>. Amazing people from <a href="https://www.learnopencv.com/">LearnOpenCV</a> 
+                posted a great tutorial on training a <a href="https://www.learnopencv.com/histogram-of-oriented-gradients/">HOG</a>-based object detector 
+                and shared a code for creating a hand gesture dataset that doesn't require any manual labeling. That was a huge help, as fixing labels and bounding boxes for any reasonably sized dataset is a truly daunting task. I used this code to create a dataset with three classes 
+                and roughly 2700 images for each class 
+                (will probably share it in a separate supplementary repo later).                
+                </li> 
+                <li><b>Model</b>. This project uses <a href="https://arxiv.org/abs/1512.02325">SSD</a> detector with 
+                <a href="https://arxiv.org/abs/1704.04861">MobileNet</a> backbone pretrained on <a href="https://cocodataset.org/#home">COCO</a> dataset 
+                downloaded from <a href="https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/tf1_detection_zoo.md">
+                Tensorflow Detection Model Zoo</a>. The model was assembled with 
+                <a href="https://github.com/tensorflow/models/tree/master/research/object_detection">Tensorflow Object Detection API</a> 
+                and trained on a dataset described above for about 7000 steps on GPU. 
+                Model's <code>.pb</code> file and <code>variables</code> are available in <code>dnn/ssd_mobilenet_gesture_detector/</code>.
+                </li>
+                <li> <b>Pattern Effects</b>
+                    <ul>
+                        <li> Open Palm effect is made from several individually rotating polygons. The rotation angle for each polygon is sampled from Perlin matrix. Check the code at <code>utils.pattern_utils.Pattern</code>, <code>utils.pattern_utils.Polygon</code> and <code>utils.pattern_utils.HandPatternEffect</code>. (I will probably add a more detailed description at some point in the future)
+                        </li>
+                        <li> Fist effect is similar to Open Palm effect, just instead of polygons it uses precalculated vertices. On each frame the pattern for for fist effect rotates around its center about the angle sampled from Perlin matrix.
+                        Check the code at <code>utils.pattern_utils.FistPatternEffect</code>.
+                        </li>
+                        <li> Puff of smoke for Teleportation Jutsu is made by following <a href="https://github.com/ssloy/tinykaboom">this</a> tutorial 
+                        by <a href="https://github.com/ssloy">Dmitry Sokolov</a>. 
+                        In short - explosion is a sphere "wrapped" into a Perlin noise with all the lights and shadows calculated with the help of a 
+                        simplified ray tracer. Puffs of smoke are not calculated on the fly (that's very computationally expensive). Instead some premade  explosion images (<code>imgs/transp_kaboomX.png</code>) are loaded at the beginning of the script and added on top of the current frame whenever 5 out of 10 last frames had teleportation jutsu detections. 
+                        Check the code at <code>utils.pattern_utils.JutsuPatternEffect</code>.
+                        </li>
+                    </ul>
+                </li>                
+            </ul>
+        </td>
+    </tr>
 </table>
 
 
