@@ -141,7 +141,7 @@ Here's a brief description of the available projects.
             Here are some technicalities:
             <ul>
                 <li> <b>Dataset</b>. Amazing people from <a href="https://www.learnopencv.com/">LearnOpenCV</a> 
-                posted a great tutorial on training a <a href="https://www.learnopencv.com/histogram-of-oriented-gradients/">HOG</a>-based object detector 
+                posted a <a href="https://www.learnopencv.com/training-a-custom-object-detector-with-dlib-making-gesture-controlled-applications/?ck_subscriber_id=546165186">great tutorial</a> on training a <a href="https://www.learnopencv.com/histogram-of-oriented-gradients/">HOG</a>-based object detector 
                 and shared a code for creating a hand gesture dataset that doesn't require any manual labeling. That was a huge help, as fixing labels and bounding boxes for any reasonably sized dataset really is a daunting task. I used this code to create a dataset with three classes 
                 and roughly 2700 images for each class 
                 (will probably share it in a separate supplementary repo later).                
