@@ -21,16 +21,8 @@ RUN apt-get install -y cmake
 # RUN apt-get install -y build-essential libgtk-3-dev libboost-all-dev
 
 # get everything needed for opencv
-RUN apt-get install -y libsm6 libxext6 libxrender-dev
+RUN apt-get install -y libsm6 libxext6 libxrender-dev libgl1-mesa-glx
 
 # get all python dependencies
-RUN pip3 install imutils
-RUN pip3 install argparse==1.1
-RUN pip3 install matplotlib=3.1.3
-RUN pip3 install opencv-python==4.4.0
-RUN pip3 install dlib==19.21.0
-RUN pip3 install tensorflow==2.3.1
-RUN pip3 install numpy==1.17.2
-
-
-
+RUN pip3 install --upgrade pip
+RUN pip3 install -r requirements.txt
