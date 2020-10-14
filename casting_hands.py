@@ -12,6 +12,9 @@ import numpy as np
 import argparse
 import time
 
+import imutils
+from imutils.video import VideoStream
+
 from utils.perlin_flow import PerlinFlow
 from utils.pattern_utils import Pattern, Polygon
 from utils.pattern_utils import FistPatternEffect, HandPatternEffect, JutsuPatternEffect
@@ -42,14 +45,13 @@ cv.namedWindow("frame")
 w,h = 640, 480
 
 # initialize web cam
-cap = cv.VideoCapture(0)
+vs = VideoStream(src=0).start()
+time.sleep(2)
 
 # start video capture
 while True:
-    ret,frame = cap.read()    
-    
-    if not ret:
-        break
+    # read video frame
+    frame = vs.read()
     
     # flip the frame
     frame = cv.resize(frame, (w,h))
@@ -96,11 +98,11 @@ while True:
     jutsupattern.draw_pattern(frame, jutsu_detected, jutsu_pt1, jutsu_pt2)
         
     # display 
-    cv.imshow("frame", frame)
+    cv.imshow("press `q` to quit", frame)
     key = cv.waitKey(1)
     if key == ord('q'):
         break
     
-cap.release()
 cv.destroyAllWindows()
+vs.stop()
         
