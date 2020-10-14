@@ -16,11 +16,11 @@ Here's a brief description of the available projects.
         <td style="text-align:left"> 
             <b>Tentacle Beard!</b>
             <br>
-            <br>         
+            <br>
             Everyone is better off with a tentacle beard!<br>
             Run `tentacle_beard.py` to capture a video stream from your machine's camera 
             and give any human-ish individual caught by the camera a fresh new look!
-            <br>       
+            <br>
             <ul>
                 <li>Most heavy-lifting is done by the 
                     <a href="https://www.pyimagesearch.com/2017/04/03/facial-landmarks-dlib-opencv-python/">facial landmark</a> detector 
@@ -28,12 +28,12 @@ Here's a brief description of the available projects.
                 <li> <a href="https://pypi.org/project/dlib/"> Dlib</a>'s facial landmark detector is based on <a href="https://lear.inrialpes.fr/people/triggs/pubs/Dalal-cvpr05.pdf"> Histogram </a> 
                     <a href="https://www.learnopencv.com/histogram-of-oriented-gradients/"> 
                         of Oriented Gradients</a> (HOG) detector and a 
-                    linear <a href="https://en.wikipedia.org/wiki/Support-vector_machine">SVM</a> classifier.                    
+                    linear <a href="https://en.wikipedia.org/wiki/Support-vector_machine">SVM</a> classifier.
                 </li>
                 <li>Facial landmarks with indices 3-15 
                     (<a href="https://www.researchgate.net/figure/The-68-points-mark-up-used-for-our-annotations-32_fig2_313584884">img</a>) 
                     serve as the anchor points for 13 beard tentacles<br>
-                </li>                    
+                </li>
                 <li>Tentacles are animated 
                     through the magic of sine-waves and smooth "randomness" of 
                     <a href="https://en.wikipedia.org/wiki/Perlin_noise"> Perlin noise</a>:
@@ -65,7 +65,7 @@ Here's a brief description of the available projects.
         </td>
         <td style="text-align:left"> 
             <b>Hand Controls</b>
-            <br><br>           
+            <br><br>
             Ever felt like controlling the video settings of your camera 
             without actually touching the keyboard?<br>
             Run `hand_controls.py` and toggle custom video switches 
@@ -73,7 +73,7 @@ Here's a brief description of the available projects.
             So far I've only added control buttons to resize the video frame 
             and to blur out the faces <br>
            (who knows, might come in handy...).
-            <br>         
+            <br>
             <ul>
                 <li>The most compute-heavy part of this project is the hand detector 
                     (`dnn/frozen_inference_graph_for_hand_detection.pb`): 
@@ -84,7 +84,7 @@ Here's a brief description of the available projects.
                             <a href="https://arxiv.org/abs/1704.04861">MobileNet V1</a> trained on 
                             <a href="http://cocodataset.org/#home">COCO dataset</a> 
                             available out-of-the-box from 
-                            <a href="https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md">tensorflow</a>;                            
+                            <a href="https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md">tensorflow</a>;
                         </li>
                         <li>
                             Assembled with 
@@ -101,7 +101,7 @@ Here's a brief description of the available projects.
                     If the bounding box of a hand overlaps with the area taken by any of the control buttons,
                     the action corresponding to that button 
                     (e.g. resize video frame or blur all faces)
-                    if executed                    
+                    if executed
                 </li>
                 <li>
                     For face detection (needed for bluring the corresponding area)
@@ -118,12 +118,12 @@ Here's a brief description of the available projects.
         <td style="text-align:left">
             <b>DnD Enhancer</b>
             <br>
-            <br>         
+            <br>
             Has 2020  disrupted your DnD sessions and you had to migrate to Skype? 
             Well, at least you use some image processing magic to make DnD magic feel more lively....
             As long as you're ok with casting spells by means of waving hand signs, of course.
             <br>
-            <br>    
+            <br>
             I trained object classifier on three classes of hand gestures 
             and added some animatted patterns which are triggered by corresponding class detections:
             <ul>
@@ -144,7 +144,7 @@ Here's a brief description of the available projects.
                 posted a <a href="https://www.learnopencv.com/training-a-custom-object-detector-with-dlib-making-gesture-controlled-applications/?ck_subscriber_id=546165186">great tutorial</a> on training a <a href="https://www.learnopencv.com/histogram-of-oriented-gradients/">HOG</a>-based object detector 
                 and shared a code for creating a hand gesture dataset that doesn't require any manual labeling. That was a huge help, as fixing labels and bounding boxes for any reasonably sized dataset really is a daunting task. I used this code to create a dataset with three classes 
                 and roughly 2700 images for each class 
-                (will probably share it in a separate supplementary repo later).                
+                (will probably share it in a separate supplementary repo later).
                 </li> 
                 <li><b>Model</b>. This project uses <a href="https://arxiv.org/abs/1512.02325">SSD</a> detector with 
                 <a href="https://arxiv.org/abs/1704.04861">MobileNet</a> backbone pretrained on <a href="https://cocodataset.org/#home">COCO</a> dataset 
@@ -168,7 +168,7 @@ Here's a brief description of the available projects.
                         Check the code at <code>utils.pattern_utils.JutsuPatternEffect</code>.
                         </li>
                     </ul>
-                </li>                
+                </li>
             </ul>
         </td>
     </tr>
@@ -263,6 +263,7 @@ $ python casting_hands.py
 
 
 ### Docker
+(This will not work if you are on Windows machine, as accessing your Windows camera from docker container is a bit [complicated](https://medium.com/@jijupax/connect-the-webcam-to-docker-on-mac-or-windows-51d894c44468))</br>
 You can set up a [docker](https://www.docker.com/) container to take care of the environment. </br>
 If you don't have `docker`, follow the [instructions](https://docs.docker.com/install/) for your system to install it and add yourself to `docker` group.</br>
 With `docker` installed, build `docker` image by running the following command from the directory, where you have copied the contents of this repo:
