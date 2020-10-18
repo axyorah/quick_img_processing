@@ -113,7 +113,7 @@ Here's a brief description of the available projects.
     </tr>
     <tr>
         <td width="33%">
-            <img align=left width=300 src="imgs/casting_hands_ver.gif"></img>
+            <img align=left width=300 src="imgs/casting_hands.gif"></img>
         </td>
         <td style="text-align:left">
             <b>DnD Enhancer</b>
