@@ -225,7 +225,7 @@ On Windows you can get `cmake` from https://cmake.org/download/ and `gcc` compil
 
 To use `OpenCV` on Linux you might need to have the following installed:
 ```
-$ sudo apt-get install -y libsm6 libxext6 libxrender-dev
+$ sudo apt-get install -y libsm6 libxext6 libxrender-dev libgl1-mesa-glx
 ```
 
 ## 3. Installation
