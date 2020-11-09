@@ -378,17 +378,15 @@ class LightningPatternEffect:
     def get_frame_generator(self):
         LIGHTNING_DIR = "imgs/lightning" if os.path.isdir("imgs") else os.path.join("..", "imgs", "lightning")
 
-        # we'll use only 4 out of original 10 frames
-        indices = [1,4,7,9]
-        
         num_bundles = 8
-        frames_per_bundle = 10
+
+        # we'll use only 4 out of original 10 frames
+        frame_indices = [1,4,7,9]        
+        
         # preload all frames
-        frame_bundles = [[]] * num_bundles
+        frame_bundles = [[] for _ in range(num_bundles)]
         for i in range(num_bundles):
-            for j in range(frames_per_bundle):
-                if j not in indices:
-                    continue
+            for j in frame_indices:
                 fullimname = os.path.join(LIGHTNING_DIR, f"lightning{i}-{j}.png")
                 fullmaskname = os.path.join(LIGHTNING_DIR, f"mask{i}-{j}.png")
             
