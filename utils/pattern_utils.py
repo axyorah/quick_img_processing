@@ -403,6 +403,12 @@ class LightningPatternEffect:
             
                 # save
                 frame_bundles[i].append((frame, mask))
+
+            # add empty frame/mask at a random loc to simulate flickering
+            empty = np.zeros(frame.shape, dtype=np.uint8)
+            idx = np.random.randint(0,len(frame_bundles[i]))
+            frame_bundles[i].insert(idx, (empty, empty))
+            frame_bundles[i].extend([(empty, empty), (empty, empty)])
             
         # yield all frames from randomly chosen bundle 
         # maybe flip the frames 
