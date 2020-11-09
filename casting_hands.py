@@ -17,7 +17,7 @@ from imutils.video import VideoStream
 
 from utils.perlin_flow import PerlinFlow
 from utils.pattern_utils import Pattern, Polygon
-from utils.pattern_utils import FistPatternEffect, HandPatternEffect, JutsuPatternEffect
+from utils.pattern_utils import FistPatternEffect, HandPatternEffect, JutsuPatternEffect, LightningPatternEffect
 
 #%% parse input data
 parser = argparse.ArgumentParser()
@@ -33,12 +33,13 @@ else:
 #%% load detectors
 tf.keras.backend.clear_session()
 detect_fn = tf.saved_model.load(DETECTOR_DIR)
-classes = ["hand", "fist", "teleportation_jutsu"]
+classes = ["hand", "fist", "teleportation_jutsu", "lightning_jutsu"]
 
 #%% define class effects
 fistpattern = FistPatternEffect()
 handpattern = HandPatternEffect()
-jutsupattern = JutsuPatternEffect()        
+jutsupattern = JutsuPatternEffect()      
+lightningpattern = LightningPatternEffect()  
 
 #%% start video capture
 cv.namedWindow("frame")
@@ -66,7 +67,9 @@ while True:
     detections = detect_fn(input_tensor)
     
     jutsu_detected = False
+    lightning_detected = False
     jutsu_pt1, jutsu_pt2 = (None,None), (None,None) #TODO: make explosion appear from the center of the box
+    lightning_pt1, lightning_pt2 = (None,None), (None,None)
     for box,clss,score in zip(detections["detection_boxes"][0], # 0-dim - batch
                               detections["detection_classes"][0],
                               detections["detection_scores"][0]):
@@ -84,7 +87,9 @@ while True:
         
         # Recall: class indices start from 1 (0 is reserved for background)
         if classes[clss-1] == "hand":
-            handpattern.draw_pattern(frame, (x1,y1), (x2,y2))
+            #handpattern.draw_pattern(frame, (x1,y1), (x2,y2))
+            lightning_detected = True # <-- temp!!!
+            lightning_pt1, lightning_pt2 = (x1,y1), (x2,y2)
         elif classes[clss-1] == "fist":
             fistpattern.draw_pattern(frame, (x1,y1), (x2,y2))            
         elif classes[clss-1] == "teleportation_jutsu":
@@ -94,8 +99,12 @@ while True:
             # and show the animation only if 5/10 frames had `jutsu_detected=True`
             #(this is resolved in JutsuPatternEffect.draw_pattern())
             jutsu_detected = True
-            justu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)    
+            justu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)   
+        elif classes[clss-1]  == "lightning_jutsu":
+            lightning_detected = True
+            lightning_pt1, lightning_pt2 = (x1,y1), (x2,y2)
     jutsupattern.draw_pattern(frame, jutsu_detected, jutsu_pt1, jutsu_pt2)
+    lightningpattern.draw_pattern(frame, lightning_detected, lightning_pt1, lightning_pt2)
         
     # display 
     cv.imshow("press `q` to quit", frame)

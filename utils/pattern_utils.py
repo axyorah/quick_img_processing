@@ -336,11 +336,7 @@ class JutsuPatternEffect:
         
     def draw_pattern(self, frame, detected, pt1=(None,None), pt2=(None,None)):
         self.detectionque.pop(0)
-        if detected:
-            #self.isongoing = True # <-- temp!
-            self.detectionque.append(True)
-        else:
-            self.detectionque.append(False)
+        self.detectionque.append(detected)
             
         if sum(self.detectionque) >= self.detectionthreshold:
             self.isongoing = True
@@ -366,7 +362,105 @@ class JutsuPatternEffect:
                 self.isongoing = False
                 self.ongoingframe = 0
 
+class LightningPatternEffect:
+    def __init__(self):
+        self.fg = self.get_frame_generator()
+        self.isongoing = False
+        self.ongoingframe = 0
         
+        # only show anymation if jutsu was detection in at least 5/10 last frames
+        self.detectionque = [False]*10
+        self.detectionthreshold = 5
+        self.modduration = 4 # num of lightning frames per animation
+
+        self.pt = (None,None)
+
+    def get_frame_generator(self):
+        LIGHTNING_DIR = "imgs/lightning" if os.path.isdir("imgs") else os.path.join("..", "imgs", "lightning")
+
+        # we'll use only 4 out of original 10 frames
+        indices = [1,4,7,9]
+        
+        num_bundles = 8
+        frames_per_bundle = 10
+        # preload all frames
+        frame_bundles = [[]] * num_bundles
+        for i in range(num_bundles):
+            for j in range(frames_per_bundle):
+                if j not in indices:
+                    continue
+                fullimname = os.path.join(LIGHTNING_DIR, f"lightning{i}-{j}.png")
+                fullmaskname = os.path.join(LIGHTNING_DIR, f"mask{i}-{j}.png")
+            
+                # read
+                frame = cv.imread(fullimname)
+                frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+                mask = cv.imread(fullmaskname)
+
+                # upscale x2
+                frame = cv.resize(frame, (640*2, 480*2))
+                mask = cv.resize(mask, (640*2, 480*2))
+            
+                # save
+                frame_bundles[i].append((frame, mask))
+            
+        # yield all frames from randomly chosen bundle 
+        # maybe flip the frames 
+        while True:
+            i = np.random.randint(0,num_bundles)
+            flipud = np.random.randint(0,2)
+            fliplr = np.random.randint(0,2)
+            for frame, mask in frame_bundles[i]:            
+                if flipud:
+                    frame = np.flipud(frame)
+                    mask = np.flipud(mask)
+                if fliplr:
+                    frame = np.fliplr(frame)
+                    mask = np.fliplr(mask)
+                yield frame, mask
+        
+    def draw_pattern(self, frame, detected, pt1=(None,None), pt2=(None,None)):
+        h,w,c = frame.shape
+        if pt1 != (None,None) and pt2 != (None,None):
+            self.pt = ((pt1[0] + pt2[0])//2, (pt1[1] + pt2[1])//2)
+
+        self.detectionque.pop(0)
+        self.detectionque.append(detected)
+            
+        self.isongoing = sum(self.detectionque) >= self.detectionthreshold
+            
+        if self.isongoing or self.ongoingframe % self.modduration:
+            # get get correct lightning img and corresponding mask
+            lightning, mask = next(self.fg)
+            #lightning = cv.cvtColor(lightning, cv.COLOR_BGR2RGB)
+
+            background = frame.astype(float)/255
+            foreground = np.zeros(frame.shape)
+            alpha = np.zeros(frame.shape)
+
+            # center lightning at avg(pt1,pt2) and add it to foreground                  
+            #MR: lightning and mask are twice as big as frame in height and width!
+            ll,rl = w - self.pt[0], 2*w - self.pt[0]
+            ul,dl = h - self.pt[1], 2*h - self.pt[1]
+
+            foreground += lightning[ul:dl,ll:rl,:].astype(float)/255
+            alpha += mask[ul:dl,ll:rl,:].astype(float)/255
+                
+            # overlay lightning (foregr) with current frame (backgr) with correct mask (alpha)
+            foreground = cv.multiply(alpha, foreground)
+            background = cv.multiply(1. - alpha, background)
+
+            # modify original frame 
+            combined = cv.add(foreground, background)
+            cv.copyTo(
+                (255*combined).astype(np.uint8), 
+                np.ones(combined.shape, dtype=np.uint8), 
+                dst=frame)
+
+            # increment the lightning animation frame count
+            self.ongoingframe += 1
+        else:
+            self.ongoingframe = 0
 
   
 #%%    
