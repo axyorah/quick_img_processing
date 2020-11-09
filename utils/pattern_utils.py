@@ -305,7 +305,7 @@ class HandPatternEffect:
             
 class JutsuPatternEffect:
     def __init__(self):
-        self.fade = 5 # num of kaboom frames that gradually fade
+        self.fade = 5 # num of kaboom frames that gradually fade at the end
         self.load_frames()
         self.isongoing = False
         self.ongoingframe = 0
@@ -316,7 +316,8 @@ class JutsuPatternEffect:
         self.detectionthreshold = 5
         
     def load_frames(self):
-        KABOOM_DIR = "imgs" if os.path.isdir("imgs") else os.path.join("..", "imgs")
+        KABOOM_DIR = os.path.join("imgs", "kaboom") if os.path.isdir("imgs") \
+            else os.path.join("..", "imgs", "kaboom")
         self.kabooms = [cv.imread(os.path.join(KABOOM_DIR, f"transp_kaboom{i}.png"))
                         for i in range(1,20)]
         h,w = self.kabooms[0].shape[:2]
@@ -376,7 +377,8 @@ class LightningPatternEffect:
         self.pt = (None,None)
 
     def get_frame_generator(self):
-        LIGHTNING_DIR = "imgs/lightning" if os.path.isdir("imgs") else os.path.join("..", "imgs", "lightning")
+        LIGHTNING_DIR = os.path.join("imgs","lightning") if os.path.isdir("imgs") \
+            else os.path.join("..", "imgs", "lightning")
 
         num_bundles = 8
 
@@ -429,21 +431,21 @@ class LightningPatternEffect:
             
         if self.isongoing or self.ongoingframe % self.modduration:
             # get get correct lightning img and corresponding mask
-            lightning, mask = next(self.fg)
-            #lightning = cv.cvtColor(lightning, cv.COLOR_BGR2RGB)
+            lightning, mask = next(self.fg)            
+            lightning = cv.cvtColor(lightning, cv.COLOR_BGR2RGB)
 
             background = frame.astype(float)/255
             foreground = np.zeros(frame.shape)
             alpha = np.zeros(frame.shape)
 
             # center lightning at avg(pt1,pt2) and add it to foreground                  
-            #MR: lightning and mask are twice as big as frame in height and width!
+            #MR: lightning and mask are twice as big as frame wrt height and width!
             ll,rl = w - self.pt[0], 2*w - self.pt[0]
             ul,dl = h - self.pt[1], 2*h - self.pt[1]
 
             foreground += lightning[ul:dl,ll:rl,:].astype(float)/255
             alpha += mask[ul:dl,ll:rl,:].astype(float)/255
-                
+
             # overlay lightning (foregr) with current frame (backgr) with correct mask (alpha)
             foreground = cv.multiply(alpha, foreground)
             background = cv.multiply(1. - alpha, background)
