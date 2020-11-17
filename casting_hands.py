@@ -33,7 +33,7 @@ else:
 #%% load detectors
 tf.keras.backend.clear_session()
 detect_fn = tf.saved_model.load(DETECTOR_DIR)
-classes = ["hand", "fist", "teleportation_jutsu", "lightning_jutsu"]
+classes = ["hand", "fist", "teleportation_jutsu", "tori_sign", "horns"]
 
 #%% define class effects
 fistpattern = FistPatternEffect()
@@ -87,9 +87,7 @@ while True:
         
         # Recall: class indices start from 1 (0 is reserved for background)
         if classes[clss-1] == "hand":
-            #handpattern.draw_pattern(frame, (x1,y1), (x2,y2))
-            lightning_detected = True # <-- temp!!!
-            lightning_pt1, lightning_pt2 = (x1,y1), (x2,y2)
+            handpattern.draw_pattern(frame, (x1,y1), (x2,y2))
         elif classes[clss-1] == "fist":
             fistpattern.draw_pattern(frame, (x1,y1), (x2,y2))            
         elif classes[clss-1] == "teleportation_jutsu":
@@ -100,7 +98,7 @@ while True:
             #(this is resolved in JutsuPatternEffect.draw_pattern())
             jutsu_detected = True
             justu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)   
-        elif classes[clss-1]  == "lightning_jutsu":
+        elif classes[clss-1]  == "horns":
             lightning_detected = True
             lightning_pt1, lightning_pt2 = (x1,y1), (x2,y2)
     jutsupattern.draw_pattern(frame, jutsu_detected, jutsu_pt1, jutsu_pt2)
