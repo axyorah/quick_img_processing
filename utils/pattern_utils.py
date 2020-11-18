@@ -5,9 +5,11 @@ Created on Fri Jan 31 22:03:36 2020
 @author: axeh
 """
 import os
+import time
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import ndimage
 try:
     from utils.perlin_flow import PerlinFlow
 except:
@@ -24,6 +26,13 @@ def rotate(vecs: np.ndarray, angle: float):
     return np.dot(vecs, 
                   np.array([[np.cos(angle), np.cos(np.pi/2 + angle)],
                             [np.sin(angle), np.sin(np.pi/2 + angle)]]))
+
+def euler_forward(dxdt, t_span, x0, p):
+    x = x0.copy()
+    dt = t_span[1] - t_span[0]
+    for i,t in enumerate(t_span[1:], start=1):
+        x += dxdt(t,x,p) * dt
+    return x
     
 class Pattern:
     def __init__(self, vertices: np.ndarray, 
@@ -33,7 +42,7 @@ class Pattern:
                        perlin_idx=0):
         self.vertices = vertices # (N,2), for closed figures 1st and last rows are the same
         self.center = np.array(center) # coordinates of center [y,x]
-        self.delta_center = np.array([[0,0]]) # displacement of the pattern's center compared to the prev setp
+        self.delta_center = np.array([[0,0]]) # displacement of the pattern's center compared to the prev step
                 
         self.dist = dist_from_center        
         self.c2p = np.array([0,1]) * self.dist # center-to-point vector
@@ -369,7 +378,7 @@ class LightningPatternEffect:
         self.isongoing = False
         self.ongoingframe = 0
         
-        # only show anymation if jutsu was detection in at least 5/10 last frames
+        # only show animation if jutsu was detection in at least 5/10 last frames
         self.detectionque = [False]*10
         self.detectionthreshold = 5
         self.modduration = 4 # num of lightning frames per animation
@@ -467,6 +476,82 @@ class LightningPatternEffect:
             self.ongoingframe += 1
         else:
             self.ongoingframe = 0
+
+class GenjutsuPatternEffect:
+    def __init__(self):
+        self.isongoing = False
+        self.begintime = 0
+        self.duration = 20 # sec
+        
+        self.detectionque = [False]*10
+        self.detectionthreshold = 5
+        
+        self.pre_frame = None
+        self.p = {"D": [0.05, 0.01, 0.03],
+                  "k1": 0.5,#0.80,             
+                  "k2": 0.5,#0.70,
+                  "k3": 0.5,#0.60,
+                  "dx": 1,
+                  "dt": 0.5}
+        self.t_span = [i*self.p["dt"] for i in range(3)]
+        
+    def genjutsu_dxdt(self, t, x, p):
+        kernel = np.array([[0.,1.,0.],[1.,-4.,1.],[0.,1.,0.]]) 
+    
+        reaction = np.zeros(self.p["sz"])
+        diffusion = np.zeros(self.p["sz"])
+        dxdt = np.zeros(self.p["sz"])
+    
+        r = x[:,:,0]
+        g = x[:,:,1]
+        b = x[:,:,2]
+    
+        reaction[:,:,0] += self.p["k1"]*r*g - self.p["k2"]*r*b
+        reaction[:,:,1] += self.p["k3"]*g*b - self.p["k1"]*r*g
+        reaction[:,:,2] += self.p["k2"]*r*b - self.p["k3"]*g*b
+        """
+        for k in range(3):
+            diffusion[:,:,k] = \
+                self.p["D"][k]/self.p["dx"]**2 * \
+                ndimage.convolve(x[:,:,k], kernel, mode="nearest")
+        """
+        
+        dxdt = reaction + diffusion
+        return dxdt
+    
+    def draw_pattern(self, frame, detected, pt1=(None,None), pt2=(None,None)):
+        h,w,c = frame.shape
+        self.p["sz"] = (h,w,c)
+        
+        self.detectionque.pop(0)
+        self.detectionque.append(detected)
+            
+        if not self.isongoing and sum(self.detectionque) >= self.detectionthreshold:
+            self.begintime = time.time()
+            
+        self.isongoing = \
+            sum(self.detectionque) >= self.detectionthreshold or \
+            time.time() - self.begintime <= self.duration
+            
+        if self.isongoing:
+
+            if self.pre_frame is None:
+                self.pre_frame = np.zeros((h,w,c))
+
+            combined = np.zeros((h,w,c))            
+            combined[:,:,0] += 0.9*self.pre_frame[:,:,0] + 0.1*frame[:,:,0]/255
+            combined[:,:,1] += 0.5*self.pre_frame[:,:,1] + 0.5*frame[:,:,1]/255
+            combined[:,:,2] += 0.7*self.pre_frame[:,:,2] + 0.3*frame[:,:,2]/255
+            
+            updated_frame = euler_forward(
+                    self.genjutsu_dxdt, self.t_span, combined, self.p)
+            cv.copyTo(
+                (255*updated_frame).astype(np.uint8), 
+                np.ones(combined.shape, dtype=np.uint8), 
+                dst=frame)
+            self.pre_frame = updated_frame
+        else:
+            self.pre_frame = None
 
   
 #%%    
