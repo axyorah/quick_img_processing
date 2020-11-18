@@ -18,8 +18,8 @@ from imutils.video import VideoStream
 from utils.perlin_flow import PerlinFlow
 from utils.pattern_utils import Pattern, Polygon
 from utils.pattern_utils import \
-    FistPatternEffect, HandPatternEffect, JutsuPatternEffect, \
-    GenjutsuPatternEffect, LightningPatternEffect
+    FistPatternEffect, HandPatternEffect, \
+    JutsuPatternEffect, LightningPatternEffect
 
 #%% parse input data
 parser = argparse.ArgumentParser()
@@ -40,8 +40,7 @@ classes = ["hand", "fist", "teleportation_jutsu", "tori_sign", "horns"]
 #%% define class effects
 fistpattern = FistPatternEffect()
 handpattern = HandPatternEffect()
-jutsupattern = JutsuPatternEffect() 
-genjutsupattern = GenjutsuPatternEffect()     
+jutsupattern = JutsuPatternEffect()   
 lightningpattern = LightningPatternEffect()  
 
 #%% start video capture
@@ -70,10 +69,8 @@ while True:
     detections = detect_fn(input_tensor)
     
     jutsu_detected = False
-    genjutsu_detected = False
     lightning_detected = False
     jutsu_pt1, jutsu_pt2 = (None,None), (None,None) #TODO: make explosion appear from the center of the box
-    genjutsu_pt1, genjutsu_pt2 = (None,None), (None,None)
     lightning_pt1, lightning_pt2 = (None,None), (None,None)
     for box,clss,score in zip(detections["detection_boxes"][0], # 0-dim - batch
                               detections["detection_classes"][0],
@@ -102,16 +99,14 @@ while True:
             # and show the animation only if 5/10 frames had `jutsu_detected=True`
             #(this is resolved in JutsuPatternEffect.draw_pattern())
             jutsu_detected = True
-            justu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)   
-        elif classes[clss-1] == "tori_sign":
-            genjutsu_detected = True
-            genjutsu_pt1, genjutsu_pt2 = (x1,y1), (x2,y2)
+            justu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)
         elif classes[clss-1]  == "horns":
             lightning_detected = True
             lightning_pt1, lightning_pt2 = (x1,y1), (x2,y2)
-    jutsupattern.draw_pattern(frame, jutsu_detected, jutsu_pt1, jutsu_pt2)
-    genjutsupattern.draw_pattern(frame, genjutsu_detected, genjutsu_pt1, genjutsu_pt2)
-    lightningpattern.draw_pattern(frame, lightning_detected, lightning_pt1, lightning_pt2)
+    jutsupattern.draw_pattern(
+        frame, jutsu_detected, jutsu_pt1, jutsu_pt2)
+    lightningpattern.draw_pattern(
+        frame, lightning_detected, lightning_pt1, lightning_pt2)
         
     # display 
     cv.imshow("press `q` to quit", frame)
