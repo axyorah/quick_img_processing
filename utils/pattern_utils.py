@@ -319,22 +319,13 @@ class JutsuPatternEffect:
     def load_frames(self):
         KABOOM_DIR = os.path.join("imgs", "kaboom") if os.path.isdir("imgs") \
             else os.path.join("..", "imgs", "kaboom")
-        self.kabooms = [cv.imread(os.path.join(KABOOM_DIR, f"transp_kaboom{i}.png"))
-                        for i in range(1,20)]
-        h,w = self.kabooms[0].shape[:2]
-        self.masks = [np.zeros((h,w), dtype=np.uint8) 
-                      for _ in range(len(self.kabooms))]
         
-        for num, (mask, kaboom) in enumerate(zip(self.masks, self.kabooms)):
-            #fadedegree = max(0, self.fade - (len(self.kabooms) - num) + 1) / self.fade # applying fade is moved to `draw_pattern`
-            for i in range(h):
-                for j in range(w):
-                    if kaboom[i][j][0] == 204 and \
-                       kaboom[i][j][1] == 179 and \
-                       kaboom[i][j][2] == 51:
-                        mask[i][j] = 0
-                    else:
-                        mask[i][j] = 255 # int(255 * (1 - fadedegree)) # applying fade is moved to `draw_pattern`
+        combined = [cv.imread(os.path.join(KABOOM_DIR, f"transp_kaboom{i}.png"),
+                              cv.IMREAD_UNCHANGED)
+                    for i in range(1,20)]
+
+        self.kabooms = [comb[:,:,:3] for comb in combined]
+        self.masks   = [comb[:,:,3] for comb in combined]        
         
     def draw_pattern(self, frame, detected, pt1=(None,None), pt2=(None,None)):
         self.detectionque.pop(0)
