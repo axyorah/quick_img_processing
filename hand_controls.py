@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-Created on Tue Aug 20 10:06:39 2019
-
-@author: axeh
-"""
 
 import numpy as np
 import tensorflow as tf
@@ -12,36 +7,27 @@ import imutils
 from imutils.video import VideoStream
 import argparse
 import time
-from utils.hand_utils import add_buttons, get_button_masks, blur_box
+from utils.hand_utils import mk_buttons, add_buttons, blur_box
 
-#%% ---------------------------------------------------------------------------
-parser = argparse.ArgumentParser()
-parser.add_argument("-m", "--show_hand_mask", default="0",
-                    help="set to 1 to show hand mask" +\
-                         "(as filled bounding boxes on a separate frame)" +\
-                         "and to 0 to ignore it (default)")
-parser.add_argument("-b", "--show_hand_bbox", default="0",
-                    help="set to 1 to show hand bounding boxes" +\
-                         "and to 0 to ignore it (default)")
-
-args = vars(parser.parse_args())
-
-#%% ---------------------------------------------------------------------------
-# realtive paths to models
-PATH_TO_FACE_FILTER  = "./dnn/haarcascade_frontalface_default.xml"
+FACE_FILTER_PATH  = "./dnn/haarcascade_frontalface_default.xml"
 DETECTOR_DIR = "./dnn/efficientdet_hand_detector/"
 
-#%% ---------------------------------------------------------------------------
-# get out-of-the-box face filter from opencv
-face_cascade = cv.CascadeClassifier(PATH_TO_FACE_FILTER)
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-m", "--show_hand_mask", default="0",
+        help="set to 1 to show hand mask" +\
+            "(as filled bounding boxes on a separate frame)" +\
+            "and to 0 to ignore it (default)")
+    parser.add_argument(
+        "-b", "--show_hand_bbox", default="0",
+        help="set to 1 to show hand bounding boxes" +\
+            "and to 0 to ignore it (default)")
 
-# load the inference model for hand detector
-tf.keras.backend.clear_session()
-detect_fn = tf.saved_model.load(DETECTOR_DIR)
-classes = ["hand"]
+    args = vars(parser.parse_args())
 
-#%% ---------------------------------------------------------------------------
-# useful function
+    return args
+
 def get_hand_masks(detections, frame, threshold=0.5,
                    show_bbox=0, show_mask=0):
     h,w = frame.shape[:2]
@@ -71,84 +57,117 @@ def get_hand_masks(detections, frame, threshold=0.5,
 
     return handmask
 
-#%% ---------------------------------------------------------------------------
-# initiate video stream
-vs = VideoStream(src=0).start()
-time.sleep(2)
-
-# initiate parameters controled via `buttons`
-width = 640
-blur  = 0
-
-# sample video stream to get some params
-sample = vs.read()
-sample = imutils.resize(sample, width=width)
-h,w = sample.shape[:2]
-aspect_ratio = h/w
-
-# get some ref values
-h_pre,w_pre = 0,0
-
-while True:
-    # read video frame
-    frame = vs.read()
-    
-    # flip the frame
-    frame = cv.resize(frame, (width, int(width * aspect_ratio)))
+def adjust_frame(frame, tar_sz):
+    frame = cv.resize(frame, tar_sz)
     frame = cv.flip(frame, 1)
     frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-    gray  = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    return frame
 
-    # convert to right format
+def preprocess_frame(frame):
     input_tensor = np.expand_dims(frame, axis=0)
     input_tensor = tf.convert_to_tensor(input_tensor, dtype=tf.uint8)
-    
-    # get detections for current frame
-    #(will always make 100 detections sorted by object probability score)
-    detections = detect_fn(input_tensor)
+    return input_tensor
 
-    # ----------------------------------------------------------------- 
-    # run inference to get hand masks
-    handmask = get_hand_masks(
-        detections, frame, threshold=0.7,
-        show_bbox=int(args["show_hand_bbox"]),
-        show_mask=int(args["show_hand_mask"]))
+def get_aspect_ratio(frame):
+    h,w = frame.shape[:2]
+    return h/w
 
-    # -----------------------------------------------------------------
-    # draw buttons
-    frame, buttons = add_buttons(frame)
+def update_params(buttons, handmask, params, overlap_threshold=0.75):
+    width = params["width"]
+    blur = params["blur"]
 
-    # resample the button masks if frame dimensions have changed
-    if (h_pre,w_pre) != (h,w):
-        masks = get_button_masks(frame, buttons)
-
-    # -----------------------------------------------------------------    
-    # check if any of the buttons overlaps with a hand
     for name in buttons.keys():
-        overlap  = cv.bitwise_and(handmask,handmask,mask=masks[name])
+        overlap = cv.bitwise_and(handmask, handmask, mask=buttons[name].mask)
 
-        if np.sum(overlap) / np.sum(masks[name]) > 0.75:
-            width, blur = buttons[name].action([width, blur])
+        if np.sum(overlap) / np.sum(buttons[name].mask) > overlap_threshold:
+            width, blur = buttons[name].action([width, blur])  
+    
+    params["width"] = np.clip(width, 200, 1000)
+    params["blur"]  = np.clip(blur, 0, 20)
 
-    # -----------------------------------------------------------------
-    # update vars affected by button controls
-    width = np.clip(width, 200, 1000)
-    blur  = np.clip(blur, 0, 20)
+    return params
+
+def detect_faces(frame):
+    gray  = cv.cvtColor(frame, cv.COLOR_RGB2GRAY)
+    return face_cascade.detectMultiScale(gray, 1.3, 5)
+
+def blur_faces(frame, faces, params):
+    blur = params["blur"]
     k     = 1 + 2*blur
     sigma = 1 +   blur
-            
-    # get face bbox and update face blur
-    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    
     for (x,y,w,h) in faces:
-        frame = blur_box(frame, (x,y), (x+w,y+h), k, sigma)
+        blur_box(frame, (x,y), (x+w,y+h), k, sigma)
 
-    # -----------------------------------------------------------------
-    # display final frame
-    cv.imshow("press 'q' to quit",  frame[:,:,::-1])
-    h_pre,w_pre = frame.shape[:2]
-    stopkey = cv.waitKey(1)
-    if stopkey == ord("q"):
-        break
 
-cv.destroyAllWindows()
-vs.stop()   
+def main():
+    # initiate video stream
+    vs = VideoStream(src=0).start()
+    time.sleep(2)
+
+    # initiate parameters controled via `buttons`
+    params = {
+        "width": 640,
+        "blur": 0
+    }
+
+    # get some ref values
+    h_pre,w_pre = 0,0
+
+    while True:
+        # read video frame
+        frame = vs.read()
+        aspect_ratio = get_aspect_ratio(frame)
+    
+        # resize and flip the frame + fix channel order (cv default: BGR)
+        frame = adjust_frame(
+            frame, (params["width"], int(params["width"] * aspect_ratio)))
+
+        # convert to correct format for tf 
+        input_tensor = preprocess_frame(frame)
+    
+        # get hand detections for current frame
+        #(will always make 100 detections sorted by object probability score)
+        hand_detections = detect_hands(input_tensor)
+
+        # get hand masks
+        handmask = get_hand_masks(
+            hand_detections, frame, threshold=0.7,
+            show_bbox=int(args["show_hand_bbox"]),
+            show_mask=int(args["show_hand_mask"]))
+
+        # update and draw buttons
+        add_buttons(frame, buttons)
+
+        # check for button/handmask overlaps and update params if needed      
+        params = update_params(buttons, handmask, params)
+        
+        # get face bbox and update face blur        
+        faces = detect_faces(frame)
+        blur_faces(frame, faces, params)
+
+        # display final frame
+        cv.imshow("press 'q' to quit",  frame[:,:,::-1])
+        h_pre,w_pre = frame.shape[:2]
+        stopkey = cv.waitKey(1)
+        if stopkey == ord("q"):
+            break
+
+    cv.destroyAllWindows()
+    vs.stop()   
+
+if __name__ == "__main__":
+    args = get_args()
+
+    # load buttons and masks
+    buttons = mk_buttons()
+
+    # get out-of-the-box face filter from opencv
+    face_cascade = cv.CascadeClassifier(FACE_FILTER_PATH)
+
+    # load the inference model for hand detector
+    tf.keras.backend.clear_session()
+    detect_hands = tf.saved_model.load(DETECTOR_DIR)
+    classes = ["hand"]
+
+    main()
