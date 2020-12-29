@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """
-Created on Thu Aug  1 15:37:59 2019
-
 Everyone is better off with a tentacle beard!
 
 use:
@@ -14,11 +12,7 @@ template for facial landmarks detection is taken from:
 
 shape predictor taken from:
     https://github.com/AKSHAYUBHAT/TensorFace/blob/master/openface/models/dlib/shape_predictor_68_face_landmarks.dat
-    
-to install dlib on windows use wheel:
-    https://pypi.python.org/packages/da/06/bd3e241c4eb0a662914b3b4875fc52dd176a9db0d4a2c915ac2ad8800e9e/dlib-19.7.0-cp36-cp36m-win_amd64.whl#md5=b7330a5b2d46420343fbed5df69e6a3f
 
-@author: axeh
 """
 
 import cv2 as cv
@@ -32,23 +26,29 @@ import time
 from utils.simple_tentacle import SimpleTentacle
 from utils.perlin_flow import PerlinFlow
 
-#%% ---------------------------------------------------------------------
-parser = argparse.ArgumentParser()
-parser.add_argument("-w", "--wigl", type=float,
-                    default=0.25,
-                    help="degrgee of tentacle 'wiggliness':\n"+\
-                         "should be a float from 0+ to 0.5")
-parser.add_argument(
+NUM_BEARD_TENTCLS = 13 # hardcoded as it corresponds to 13/15 facial anchor points
+FACEDIM_REF = 1/5      # default face width relative to frame width (used to scale the breard)
+FRAME_WIDTH = 500
+
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-w", "--wigl", type=float, default=0.25,
+        help="degrgee of tentacle 'wiggliness':\n"+\
+            "should be a float from 0+ to 0.5")
+    parser.add_argument(
         "-p", "--shapepredictor", 
         default="./dnn/shape_predictor_68_face_landmarks.dat",
         help="path to dlib shape predictor (.dat)\n"+\
-             "cat be downloaded from\n"+\
-             "https://github.com/AKSHAYUBHAT/TensorFace/blob/master/"+\
-             "openface/models/dlib/shape_predictor_68_face_landmarks.dat")
-args = vars(parser.parse_args())
-args["wigl"] = float(args["wigl"])
+            "cat be downloaded from\n"+\
+            "https://github.com/AKSHAYUBHAT/TensorFace/blob/master/"+\
+            "openface/models/dlib/shape_predictor_68_face_landmarks.dat")
+    args = vars(parser.parse_args())
+    args["wigl"] = float(args["wigl"])
 
-#%% ---------------------------------------------------------------------
+    return args
+
+
 # useful stuff for face/facial landmarks detection
 def rect2bb(rect):
     """
@@ -83,156 +83,197 @@ def midpoint(pt1, pt2):
 def dist(pt1, pt2):
     return np.sqrt((pt1[0]-pt2[0])**2 + (pt1[1]-pt2[1])**2)
     
+def get_perlin():
+    pf = PerlinFlow(ver_grid=5, hor_grid=6, points_at_last_octave=6)
+    perlin = pf.get_perlin()
+    perlin = (perlin - perlin.min()) / (perlin.max() - perlin.min())
+    return perlin
 
-# initiate shape detector and landmark predictor
-detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor(args["shapepredictor"])
+def init(perlin, max_seg=23, min_seg=10):
+    """
+    initialize:
+        bread tentacles (each composed of `min_seg` to `max_seg` segments)
+        scale factors for each tentacle (central one should be thicker than lateral)
+        scale factor (thickness) for each tentacle segment    
+        indices for each tentacle corresponding to a row in perlin mtx
+        color corresponding to each tentacle   
+        flip array (all the left-side tentacles should be flipped)
+    """
+    # base values for some characteristic features
+    joint_base     = np.random.randint(min_seg,max_seg, NUM_BEARD_TENTCLS)
+    tentacle_base  = [SimpleTentacle(joint_base[i])
+                      for i in range(NUM_BEARD_TENTCLS)]
+    scale_base     = [13 + 13*np.sin(angle) 
+                      for angle in np.linspace(0,np.pi,NUM_BEARD_TENTCLS)]
+    flip_base      = [True if i < NUM_BEARD_TENTCLS//2 else False
+                      for i in range(NUM_BEARD_TENTCLS)]
+    perlin_base    = np.random.choice(range(perlin.shape[0]), NUM_BEARD_TENTCLS)
+    color_base     = [(np.random.randint(100,200), np.random.randint(100,230), 0)
+                      for _ in range(NUM_BEARD_TENTCLS)]
+    thickness_base = [8 * 0.95**i for i in range(max_seg)]
 
+    return {
+        "tentacle_base": tentacle_base,
+        "scale_base": scale_base,
+        "flip_base": flip_base,
+        "perlin_base": perlin_base,
+        "color_base": color_base,
+        "thickness_base": thickness_base
+    }
 
-#%% ---------------------------------------------------------------------
-# generate perlin noise for smooth *randomness*
-pf = PerlinFlow(ver_grid=5, hor_grid=6, points_at_last_octave=6)
-perlin = pf.get_perlin()
-perlin = (perlin - perlin.min()) / (perlin.max() - perlin.min())
+def get_face_scaling_factor(landmarks):
+    """
+    get relative face width (face width to frame width) wrt reference
+    """
+    facedim = max(
+        dist(landmarks[3], landmarks[13]),
+        dist(landmarks[8], landmarks[27])) / FRAME_WIDTH
+    face_scale = facedim / FACEDIM_REF
+    return face_scale
 
+def draw_tentacle_by_idx(
+    frame, frame_idx, landmarks, lndmrk_idx, center, scale):
 
-facedim_ref = 100/500 # ref val for characteristic face width (jaw width)
-beard_tentacles = 13  # num of beard tentacles // don't change it...
-max_seg = 23          # max num of tentacle segments 
-min_seg = 10          # min num of tentacle segments
+    tentacle_base = params["tentacle_base"]
+    color_base = params["color_base"]    
+    thickness_base = params["thickness_base"]
+    scale_base = params["scale_base"]
+    flip_base = params["flip_base"]
+    perlin_base = params["perlin_base"]
 
-# base values for some characteristic features
-joint_base     = np.random.randint(min_seg,max_seg, beard_tentacles)
-tentacle_base  = [SimpleTentacle(joint_base[i])
-                  for i in range(beard_tentacles)]
-scale_base     = [13 + 13*np.sin(angle) 
-                  for angle in np.linspace(0,np.pi,beard_tentacles)]
-flip_base      = [True if i < beard_tentacles//2 else False
-                  for i in range(beard_tentacles)]
-perlin_base    = np.random.choice(range(perlin.shape[0]), beard_tentacles)
-
-color_base     = [(np.random.randint(100,200), np.random.randint(100,230), 0)
-                  for _ in range(beard_tentacles)]
-thickness_base = [8 * 0.95**i for i in range(max_seg)]
-
-# start video stream
-vc = cv.VideoCapture(0)
-time.sleep(2)
-
-idx = 0 # will be used to sample perlin mtx
-prev_faces = None # will be used to smoothen frame transitions
-frame_width = 500
-while True:
-    _, frame = vc.read()
-    frame = imutils.resize(frame, width=frame_width)
-    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    # 13 facial landmarks (indices 3 to 15, base-1 indexing) 
+    # are used as the anchor points to draw breard tentacle;
+    # tentacle indices are simple landmark_idx - 2
+    idx = lndmrk_idx - 2 
     
-    # get bounding boxes for face detections
-    #(or use the ones from the previous step)
-    faces = detector(gray, 1)
-    #if not faces and prev_faces is not None:
-    #   faces = prev_faces
+    # get direction of arm_angle:            
+    #(direction from highest nose point and anchor of a beard tentacle) 
+    x = landmarks[lndmrk_idx][0] - center[0]
+    y = landmarks[lndmrk_idx][1] - center[1]
+            
+    # sample perlin mtx for smooth "randomness"
+    perlin_random = perlin[perlin_base[idx], frame_idx % perlin.shape[1]]
+
+    t = tentacle_base[idx].get_wiggly_tentacle(
+        int(np.round(scale * scale_base[idx])),
+        landmarks[lndmrk_idx],
+        (x,y),
+        max_angle_between_segments=args["wigl"]*np.pi * perlin_random,
+        angle_freq=1 * perlin_random,
+        angle_phase_shift=2*np.pi * perlin_random,
+        flip=flip_base[idx]
+        ).astype(int)
+
+
+    for i in range(t.shape[1]-1):
+        cv.line(frame, tuple(t[:,i]), tuple(t[:,i+1]), 
+                color_base[idx], 
+                int(np.round(scale * thickness_base[i])))
+
+def draw_mustachio(
+    frame, frame_idx, anchor, landmarks, lndmrk_idx, must_idx, 
+    center, scale, flip):
+    tentacle_base = params["tentacle_base"]
+
+    y = landmarks[lndmrk_idx][1] - center[1]
+    x = landmarks[lndmrk_idx][0] - center[0] + 1e-16
+    perlin_random = perlin[must_idx % perlin.shape[0],
+                           frame_idx % perlin.shape[1]]
+
+    m = tentacle_base[0].get_wiggly_tentacle(
+        int(scale * 9), anchor, (x,y),
+        max_angle_between_segments=np.pi/5 * perlin_random,
+        angle_freq=1 * perlin_random,
+        angle_phase_shift=np.pi * perlin_random,
+        flip=flip
+        ).astype(int)
+
+    for i in range(m.shape[1]-1):
+        cv.line(frame, tuple(m[:,i]), tuple(m[:,i+1]), (100,100,0), 
+                int(np.round(scale * 5)))
+
+def draw_brows(frame, landmarks, lndmrk_idx_start, lndmrk_idx_end, scale):
+    for i in range(lndmrk_idx_start,lndmrk_idx_end+1):
+        cv.line(frame, tuple(landmarks[i]), tuple(landmarks[i+1]), 
+               (100,100,0), int(np.round(scale * 7)))
+
+def main():
+    # start video stream
+    vc = cv.VideoCapture(0)
+    time.sleep(2)
+
+    frame_idx = 0 # will be used to sample perlin mtx
+    while True:
+        _, frame = vc.read()
+        frame = imutils.resize(frame, width=FRAME_WIDTH)
+        gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     
-    # go through each detected face        
-    for iface,face in enumerate(faces):   
-        # get 68 facial landmarks for current face
-        landmarks_raw = predictor(gray, face)
-        landmarks     = shape2np(landmarks_raw)        
-        #for landmark in landmarks:
-        #    cv.circle(frame, tuple(landmark), 1, (0,0,255), -1) 
+        # get bounding boxes for face detections
+        #(or use the ones from the previous step)
+        faces = detector(gray, 1)
+    
+        # go through each detected face        
+        for face in faces:   
+            # get 68 facial landmarks for current face
+            landmarks_raw = predictor(gray, face)
+            landmarks     = shape2np(landmarks_raw)
         
-        # get central beard landmark (highest nose point)
-        #(all beard tentacles are poining away from it)
-        center = landmarks[27]
-        
-        # estimate face dimension relative to the frame
-        facedim = max(dist(landmarks[3], landmarks[13]),
-                      dist(landmarks[8], landmarks[27])) / frame_width
-        face_scale = facedim / facedim_ref
-        
-        # use landmarks 3-16 to draw tentacle beard            
-        for it,lndmrk in zip(range(beard_tentacles), range(2,16,1)):
-            # get direction of arm_angle:            
-            #(direction from highest nose point and root of a berad tentacle) 
-            x = landmarks[lndmrk][0] - center[0]
-            y = landmarks[lndmrk][1] - center[1]
-            
-            # sample perlin mtx for smooth "randomness"
-            perlin_random = perlin[perlin_base[it],
-                                   idx % perlin.shape[1]]
-            
-            # wiggle the tentacle smoothly and "randomly"
-            t = tentacle_base[it].get_wiggly_tentacle(
-                    int(np.round(face_scale * scale_base[it])),
-                    landmarks[lndmrk],
-                    (x,y),
-                    max_angle_between_segments=args["wigl"]*np.pi * perlin_random,
-                    angle_freq=1 * perlin_random,
-                    angle_phase_shift=2*np.pi * perlin_random,
-                    flip=flip_base[it]
-                    ).astype(int)
+            # get central beard landmark (highest nose point)
+            #(all beard tentacles are poining away from it)
+            beard_center = landmarks[27]
 
-
-            for i in range(t.shape[1]-1):
-                cv.line(frame, tuple(t[:,i]), tuple(t[:,i+1]), 
-                        color_base[it], 
-                        int(np.round(face_scale * thickness_base[i])))
+            # get central mustache landmark
+            #(mustache 'branches' are pointing away from it)
+            must_center = landmarks[52]
+        
+            # estimate face dimension relative to the frame
+            face_scale = get_face_scaling_factor(landmarks)
+        
+            # use landmarks 3-16 to draw tentacle beard            
+            for lndmrk_idx in range(2,2+NUM_BEARD_TENTCLS,1):             
+                draw_tentacle_by_idx(
+                    frame, frame_idx, landmarks, lndmrk_idx, 
+                    beard_center, face_scale)
+                
                
-        # use landmarks 33-35, 51-53 to draw mustache
-        # left mustachio
-        y = landmarks[51][1] - landmarks[52][1]
-        x = landmarks[51][0] - landmarks[52][0] + 1e-16
-        perlin_random = perlin[42 % perlin.shape[0],
-                               idx % perlin.shape[1]]
-        ml = tentacle_base[0].get_wiggly_tentacle(
-                    int(np.round(face_scale * 9)),
-                    midpoint(landmarks[32], landmarks[50]),
-                    (x,y),
-                    max_angle_between_segments=np.pi/5 * perlin_random,
-                    angle_freq=1 * perlin_random,
-                    angle_phase_shift=np.pi * perlin_random,
-                    flip=True
-                    ).astype(int)
-
-        for i in range(ml.shape[1]-1):
-            cv.line(frame, tuple(ml[:,i]), tuple(ml[:,i+1]), (100,100,0), 
-                    int(np.round(face_scale * 5)))
+            # use landmarks 33-35, 51-53 to draw mustache
+            # left mustachio
+            left_anchor = midpoint(landmarks[32], landmarks[50])
+            draw_mustachio(
+                frame, frame_idx, left_anchor, landmarks, 51, 42, 
+                must_center, face_scale, True)
             
-        # right mustachio
-        y = landmarks[53][1] - landmarks[52][1]
-        x = landmarks[53][0] - landmarks[52][0] + 1e-16
-        perlin_random = perlin[47 % perlin.shape[0],
-                               idx % perlin.shape[1]]
-        mr = tentacle_base[-1].get_wiggly_tentacle(
-                    int(np.round(face_scale * 9)),
-                    midpoint(landmarks[34], landmarks[52]),
-                    (x,y),
-                    max_angle_between_segments=0.2*np.pi * perlin_random,
-                    angle_freq=1 * perlin_random,
-                    angle_phase_shift=np.pi * perlin_random,
-                    flip=False
-                    ).astype(int)
-
-        for i in range(mr.shape[1]-1):
-            cv.line(frame, tuple(mr[:,i]), tuple(mr[:,i+1]), (100,100,0), 
-                    int(np.round(face_scale * 5)))
+            # right mustachio
+            right_anchor = midpoint(landmarks[34], landmarks[52])
+            draw_mustachio(
+                frame, frame_idx, right_anchor, landmarks, 53, 47, 
+                must_center, face_scale, False)
             
-        # draw brows
-        for i in range(17,21):
-            cv.line(frame, tuple(landmarks[i]), tuple(landmarks[i+1]), 
-                   (100,100,0), int(np.round(face_scale * 7)))
-        for i in range(22,26):
-            cv.line(frame, tuple(landmarks[i]), tuple(landmarks[i+1]), 
-                   (100,100,0), int(np.round(face_scale * 7)))
+            # draw brows
+            draw_brows(frame, landmarks, 17, 20, face_scale)
+            draw_brows(frame, landmarks, 22, 25, face_scale)
         
-    if faces:
-        prev_faces = faces
-    
-    idx += 1
-    cv.imshow("press 'q' to quit", frame)
-    key = cv.waitKey(1) & 0xFF
-    if key == ord("q"):
-        break
-vc.release()
-cv.destroyAllWindows()
+        frame_idx += 1
+        cv.imshow("press 'q' to quit", frame)
+        key = cv.waitKey(1) & 0xFF
+        if key == ord("q"):
+            break
 
+    vc.release()
+    cv.destroyAllWindows()
+
+
+if __name__ == "__main__":    
+    args = get_args()
+    
+    # initiate face detector and facial landmark predictor
+    detector = dlib.get_frontal_face_detector()
+    predictor = dlib.shape_predictor(args["shapepredictor"])
+
+    # get perlin mtx for smooth randomness
+    perlin = get_perlin()
+
+    # initialize tentacles
+    params = init(perlin)
+
+    main()
