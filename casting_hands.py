@@ -1,15 +1,8 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Sep 23 21:27:23 2020
-
-@author: axeh
-"""
 import tensorflow as tf
 import cv2 as cv
 import os
 import numpy as np
-import argparse
 import time
 
 import imutils
@@ -21,57 +14,24 @@ from utils.pattern_utils import \
     FistPatternEffect, HandPatternEffect, \
     JutsuPatternEffect, LightningPatternEffect
 
-#%% parse input data
-parser = argparse.ArgumentParser()
-parser.add_argument("--detectordir", 
-                    default=None)
-args = vars(parser.parse_args())
+DETECTOR_DIR = "./dnn/ssd_mobilenet_gesture_detector/"
 
-if args["detectordir"] is None:
-    DETECTOR_DIR = "./dnn/ssd_mobilenet_gesture_detector/"
-else:
-    DETECTOR_DIR = args["detectordir"]
-
-#%% load detectors
-tf.keras.backend.clear_session()
-detect_fn = tf.saved_model.load(DETECTOR_DIR)
-classes = ["hand", "fist", "teleportation_jutsu", "tori_sign", "horns"]
-
-#%% define class effects
-fistpattern = FistPatternEffect()
-handpattern = HandPatternEffect()
-jutsupattern = JutsuPatternEffect()   
-lightningpattern = LightningPatternEffect()  
-
-#%% start video capture
-cv.namedWindow("frame")
-w,h = 640, 480
-
-# initialize web cam
-vs = VideoStream(src=0).start()
-time.sleep(2)
-
-# start video capture
-while True:
-    # read video frame
-    frame = vs.read()
-    
-    # flip the frame
-    frame = cv.resize(frame, (w,h))
+def adjust_frame(frame, tar_sz):
+    frame = cv.resize(frame, tar_sz)
     frame = cv.flip(frame, 1)
+    return frame
 
-    # convert to right format
+def preprocess_frame(frame):
     input_tensor = np.expand_dims(frame, axis=0)
-    input_tensor = tf.convert_to_tensor(input_tensor, dtype=tf.uint8)
-    
-    # get detections for current frame
-    #(will always make 100 detections sorted by object probability score)
-    detections = detect_fn(input_tensor)
-    
-    jutsu_detected = False
-    lightning_detected = False
+    return tf.convert_to_tensor(input_tensor, dtype=tf.uint8)
+
+def draw_effects(frame, detections):
+    h,w = frame.shape[:2]
+
+    jutsu_detected, lightning_detected = False, False
     jutsu_pt1, jutsu_pt2 = (None,None), (None,None) #TODO: make explosion appear from the center of the box
     lightning_pt1, lightning_pt2 = (None,None), (None,None)
+    
     for box,clss,score in zip(detections["detection_boxes"][0], # 0-dim - batch
                               detections["detection_classes"][0],
                               detections["detection_scores"][0]):
@@ -99,7 +59,7 @@ while True:
             # and show the animation only if 5/10 frames had `jutsu_detected=True`
             #(this is resolved in JutsuPatternEffect.draw_pattern())
             jutsu_detected = True
-            justu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)
+            jutsu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)
         elif classes[clss-1]  == "horns":
             lightning_detected = True
             lightning_pt1, lightning_pt2 = (x1,y1), (x2,y2)
@@ -107,13 +67,54 @@ while True:
         frame, jutsu_detected, jutsu_pt1, jutsu_pt2)
     lightningpattern.draw_pattern(
         frame, lightning_detected, lightning_pt1, lightning_pt2)
-        
-    # display 
-    cv.imshow("press `q` to quit", frame)
-    key = cv.waitKey(1)
-    if key == ord('q'):
-        break
+
+
+def main():
+    # start video capture
+    cv.namedWindow("frame")
+    w,h = 640, 480
+
+    # initialize web cam
+    vs = VideoStream(src=0).start()
+    time.sleep(2)
+
+    # start video capture
+    while True:
+        # read video frame
+        frame = vs.read()
     
-cv.destroyAllWindows()
-vs.stop()
+        # flip the frame
+        frame = adjust_frame(frame, (w,h))
+
+        # convert to right format
+        input_tensor = preprocess_frame(frame)
+    
+        # get detections for current frame
+        #(will always make 100 detections sorted by object probability score)
+        detections = detect_fn(input_tensor)
+
+        # check detections and draw corresponding effects
+        draw_effects(frame, detections)        
         
+        # display 
+        cv.imshow("press `q` to quit", frame)
+        key = cv.waitKey(1)
+        if key == ord('q'):
+            break
+    
+    cv.destroyAllWindows()
+    vs.stop()
+
+if __name__ == "__main__":
+    # load detectors
+    tf.keras.backend.clear_session()
+    detect_fn = tf.saved_model.load(DETECTOR_DIR)
+    classes = ["hand", "fist", "teleportation_jutsu", "tori_sign", "horns"]
+
+    # define class effects
+    fistpattern = FistPatternEffect()
+    handpattern = HandPatternEffect()
+    jutsupattern = JutsuPatternEffect()   
+    lightningpattern = LightningPatternEffect()  
+
+    main()
