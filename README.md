@@ -123,7 +123,7 @@ Here's a brief description of the available projects.
             As long as you're ok with casting spells by means of waving hand signs, of course.
             <br>
             <br>
-            I trained object classifier on three classes of hand gestures 
+            I trained object classifier on four classes of hand gestures 
             and added some animatted patterns which are triggered by corresponding class detections:
             <ul>
                 <li> Open Palm triggers generic spell effect. 
@@ -134,6 +134,8 @@ Here's a brief description of the available projects.
                 </li>
                 <li> <a href="https://naruto.fandom.com/wiki/Body_Flicker_Technique">Teleportation Jutsu</a> 
                 creates a puff of smoke: Poof! You cast <a href="https://roll20.net/compendium/dnd5e/Misty%20Step#content">Misty Step</a>!
+                </li>
+                <li> <a href="https://en.wikipedia.org/wiki/Sign_of_the_horns">Horns</a> invoke a lightning! You cast Lightning Bolt!
                 </li>
             </ul>
             <br>
