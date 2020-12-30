@@ -3,8 +3,6 @@
 import numpy as np
 import tensorflow as tf
 import cv2 as cv
-import imutils
-from imutils.video import VideoStream
 import argparse
 import time
 from utils.hand_utils import mk_buttons, add_buttons, blur_box
@@ -102,7 +100,7 @@ def blur_faces(frame, faces, params):
 
 def main():
     # initiate video stream
-    vs = VideoStream(src=0).start()
+    vc = cv.VideoCapture(0)
     time.sleep(2)
 
     # initiate parameters controled via `buttons`
@@ -116,7 +114,7 @@ def main():
 
     while True:
         # read video frame
-        frame = vs.read()
+        _, frame = vc.read()
         aspect_ratio = get_aspect_ratio(frame)
     
         # resize and flip the frame + fix channel order (cv default: BGR)
@@ -153,8 +151,8 @@ def main():
         if stopkey == ord("q"):
             break
 
+    vc.release()
     cv.destroyAllWindows()
-    vs.stop()   
 
 if __name__ == "__main__":
     args = get_args()
