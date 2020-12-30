@@ -11,7 +11,7 @@ Here's a brief description of the available projects.
     </tr>
     <tr>
         <td width="33%">
-            <img align=left width=300 src="imgs/tentacle_beard.gif"></img>
+            <img width=300 src="imgs/tentacle_beard.gif">
         </td>
         <td style="text-align:left"> 
             <b>Tentacle Beard!</b>
@@ -61,14 +61,14 @@ Here's a brief description of the available projects.
     </tr>
     <tr>
         <td width="33%"> 
-            <img align=left width=300 src="imgs/hand_controls.gif"></img> 
+            <img width=300 src="imgs/hand_controls.gif"> 
         </td>
         <td style="text-align:left"> 
             <b>Hand Controls</b>
             <br><br>
             Ever felt like controlling the video settings of your camera 
             without actually touching the keyboard?<br>
-            Run `hand_controls.py` and toggle custom video switches 
+            Run <code>hand_controls.py</code> and toggle custom video switches 
             by waving hands around the control buttons!<br>
             So far I've only added control buttons to resize the video frame 
             and to blur out the faces <br>
@@ -76,12 +76,11 @@ Here's a brief description of the available projects.
             <br>
             <ul>
                 <li>The most compute-heavy part of this project is the hand detector 
-                    (`dnn/frozen_inference_graph_for_hand_detection.pb`): 
+                    (<code>dnn/efficientdet_hand_detector/</code>): 
                 </li>
                     <ul style="list-style-type:circle;">
                         <li>
-                            Base architecture: <a href="https://arxiv.org/abs/1512.02325">SSD</a> 
-                            <a href="https://arxiv.org/abs/1704.04861">MobileNet V1</a> trained on 
+                            Base architecture: <a href="download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d0_coco17_tpu-32.tar.gz">EfficientDet D0 512x512</a> trained on 
                             <a href="http://cocodataset.org/#home">COCO dataset</a> 
                             available out-of-the-box from 
                             <a href="https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md">tensorflow</a>;
@@ -90,7 +89,7 @@ Here's a brief description of the available projects.
                             Assembled with 
                             <a href="https://github.com/tensorflow/models/tree/master/research/object_detection">Tensorflow Object Detection API</a> 
                             and trained on 
-                            <a href="http://vision.soic.indiana.edu/projects/egohands/">Egohands dataset</a>;
+                            <a href="#customdataset">custom dataset</a> with 3907 images of a hand (open palm);
                         </li>
                     </ul>
                 <li>Each video frame is fed to the hand detector, 
@@ -101,19 +100,19 @@ Here's a brief description of the available projects.
                     If the bounding box of a hand overlaps with the area taken by any of the control buttons,
                     the action corresponding to that button 
                     (e.g. resize video frame or blur all faces)
-                    if executed
+                    is executed
                 </li>
                 <li>
                     For face detection (needed for bluring the corresponding area)
                     I use simple <a href="https://docs.opencv.org/3.4.1/d7/d8b/tutorial_py_face_detection.html">HAAR cascade</a>, 
-                    available in <a href="https://github.com/opencv/opencv/tree/master/data/haarcascades">OpenCV</a>.
+                    available from <a href="https://github.com/opencv/opencv/tree/master/data/haarcascades">OpenCV</a>.
                 </li>
             </ul>
         </td>
     </tr>
     <tr>
         <td width="33%">
-            <img align=left width=300 src="imgs/casting_hands.gif"></img>
+            <img width=300 src="imgs/casting_hands.gif">
         </td>
         <td style="text-align:left">
             <b>DnD Enhancer</b>
@@ -140,11 +139,7 @@ Here's a brief description of the available projects.
             <br>
             Here are some technicalities:
             <ul>
-                <li> <b>Dataset</b>. Amazing people from <a href="https://www.learnopencv.com/">LearnOpenCV</a> 
-                posted a <a href="https://www.learnopencv.com/training-a-custom-object-detector-with-dlib-making-gesture-controlled-applications/?ck_subscriber_id=546165186">great tutorial</a> on training a <a href="https://www.learnopencv.com/histogram-of-oriented-gradients/">HOG</a>-based object detector 
-                and shared a code for creating a hand gesture dataset that doesn't require any manual labeling. That was a huge help, as fixing labels and bounding boxes for any reasonably sized dataset really is a daunting task. I used this code to create a dataset with three classes 
-                and roughly 2700 images for each class 
-                (will probably share it in a separate supplementary repo later).
+                <li> <b>Dataset</b>. For this project I use <a href="#customdataset">custom hand gesture</a> dataset with 11056 images belonging to four classes, as described below.
                 </li> 
                 <li><b>Model</b>. This project uses <a href="https://arxiv.org/abs/1512.02325">SSD</a> detector with 
                 <a href="https://arxiv.org/abs/1704.04861">MobileNet</a> backbone pretrained on <a href="https://cocodataset.org/#home">COCO</a> dataset 
@@ -174,15 +169,14 @@ Here's a brief description of the available projects.
     </tr>
 </table>
 
+### *Custom Dataset <a name="customdataset"></a>
+To train hand detectors I used custom dataset floowing the procedure shared by amazing people from <a href="https://www.learnopencv.com/">LearnOpenCV</a>. The exact procedure is described in the beginning of <a href="https://www.learnopencv.com/training-a-custom-object-detector-with-dlib-making-gesture-controlled-applications/?ck_subscriber_id=546165186">this tutorial</a> on HOG-based object detection. 
 
-
-
-
- 
+Hand dataset contains 3907 images of open palm. Hand gensture dataset contains 11056 images of four classes: hand (open palm), fist, "teleportation jutsu", "horns", with approximately 2700 images per class. Each image contains only one object (hand gesture), and both datasetes feature hands that mostly belong to one person (well, me). Additionally, all objects in the dataset are located approximately 1m away from the camera. This drastically narrows down the potential use cases of the detectors trained on these datasets, but for the purposes of this project the datasets are quite sufficient.
 
 ## 2. Requirements
 Your device should have a functioning camera and [python 3](https://www.python.org/download/releases/3.0/) installed. </br>
-Ideally you'd want to run this project from a [docker](https://www.docker.com/) container (see below the instructions for setting up a container). But if you're feeling adventurous, you can take care of all the dependencies manually.
+You can run this project from a [docker](https://www.docker.com/) container (see below the instructions for setting up a container). But if you're feeling adventurous, you can take care of all the dependencies manually.
 
 ### Dependencies
 This project uses the following python packages:
