@@ -5,9 +5,6 @@ import os
 import numpy as np
 import time
 
-import imutils
-from imutils.video import VideoStream
-
 from utils.perlin_flow import PerlinFlow
 from utils.pattern_utils import Pattern, Polygon
 from utils.pattern_utils import \
@@ -75,13 +72,13 @@ def main():
     w,h = 640, 480
 
     # initialize web cam
-    vs = VideoStream(src=0).start()
+    vc = cv.VideoCapture(0)
     time.sleep(2)
 
     # start video capture
     while True:
         # read video frame
-        frame = vs.read()
+        _, frame = vc.read()
     
         # flip the frame
         frame = adjust_frame(frame, (w,h))
@@ -102,11 +99,11 @@ def main():
         if key == ord('q'):
             break
     
+    vc.release()
     cv.destroyAllWindows()
-    vs.stop()
 
 if __name__ == "__main__":
-    # load detectors
+    # load hand gesture qdetector
     tf.keras.backend.clear_session()
     detect_fn = tf.saved_model.load(DETECTOR_DIR)
     classes = ["hand", "fist", "teleportation_jutsu", "tori_sign", "horns"]
