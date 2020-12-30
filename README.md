@@ -80,7 +80,7 @@ Here's a brief description of the available projects.
                 </li>
                     <ul style="list-style-type:circle;">
                         <li>
-                            Base architecture: <a href="download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d0_coco17_tpu-32.tar.gz">EfficientDet D0 512x512</a> trained on 
+                            Base architecture: <a href="https://arxiv.org/abs/1512.02325">SSD</a> detector with <a href="download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d0_coco17_tpu-32.tar.gz">EfficientDet D0 512x512</a> backbone trained on 
                             <a href="http://cocodataset.org/#home">COCO dataset</a> 
                             available out-of-the-box from 
                             <a href="https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md">tensorflow</a>;
