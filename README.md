@@ -271,3 +271,5 @@ To try the DnD enhancer simply run:
 ```
 $ python casting_hands.py
 ```
+
+To stop press `q`.
