@@ -12,7 +12,7 @@ import numpy as np
 import shutil
 import argparse
 import time
-from utils import SlidingWindow
+from utils import BBoxWriter
 
 def get_args():
     """parse input data"""
@@ -144,7 +144,7 @@ def main():
     
     # initiate sliding window drawer
     print(f"[INFO] Setting the size of a sliding window to {win_w}x{win_h}")
-    window = SlidingWindow(win_w, win_h, skip_frame, init_count=init_record_count)    
+    writer = BBoxWriter(win_w, win_h, skip_frame, init_count=init_record_count)    
     
     # prepare frame
     w, h = 640, 480 # frame dimensions
@@ -179,12 +179,12 @@ def main():
             init_wait_counter +=1        
         else:
             # always update sliding window (bbox) position
-            window.update_sliding_window_position(frame)
+            writer.update_sliding_window_position(frame)
             # make a record only each `skip` number of frames
-            if not window.counter % window.skip:
-                window.write_frame_and_sliding_window_position(frame, subdir, box_file)
+            if not writer.counter % writer.skip:
+                writer.write_frame_and_sliding_window_position(orig, subdir, box_file)
         
-        window.add_sliding_window_to_frame(frame)
+        writer.add_sliding_window_to_frame(frame)
     
         # show frame
         cv.imshow(window_name, frame)

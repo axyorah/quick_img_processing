@@ -2,7 +2,7 @@ import cv2 as cv
 import time
 import os
 
-class SlidingWindow:
+class BBoxWriter:
     def __init__(self, w=130, h=190, dw=10, dh=10, skip=17, init_count=0):
         self.w = w
         self.h = h

@@ -1,7 +1,7 @@
 import cv2 as cv
 import time
 import argparse
-from utils import SlidingWindow
+from utils import BBoxWriter
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -36,7 +36,7 @@ def main():
     win_w, win_h = winsize
 
     # initiate the sliding window drawer
-    drawer = SlidingWindow(win_w, win_h, skip_frame)
+    writer = BBoxWriter(win_w, win_h, skip_frame)
 
     # start video capture
     name = "press `q` to quit"
@@ -56,8 +56,8 @@ def main():
         frame = adjust_frame(frame, (w,h))
 
         # add sliding window to frame
-        drawer.update_sliding_window_position(frame)
-        drawer.add_sliding_window_to_frame(frame)
+        writer.update_sliding_window_position(frame)
+        writer.add_sliding_window_to_frame(frame)
         
         # display 
         cv.imshow(name, frame)
