@@ -128,9 +128,6 @@ def adjust_frame(frame, tar_sz):
     frame = cv.flip(frame, 1)
     return frame
 
-def save_frame(name, frame):
-    cv.imwrite(name, frame)
-
 def main():
     # get args
     args = get_args()
@@ -181,11 +178,11 @@ def main():
             add_init_text_to_frame(frame, clss)
             init_wait_counter +=1        
         else:
+            # always update sliding window (bbox) position
             window.update_sliding_window_position(frame)
-            window.write_sliding_window_position_to_file(box_file)
-            
-            name = os.path.join(subdir, f"{window.counter}.jpeg")
-            save_frame(name, orig)
+            # make a record only each `skip` number of frames
+            if not window.counter % window.skip:
+                window.write_frame_and_sliding_window_position(frame, subdir, box_file)
         
         window.add_sliding_window_to_frame(frame)
     

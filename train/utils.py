@@ -1,5 +1,6 @@
 import cv2 as cv
 import time
+import os
 
 class SlidingWindow:
     def __init__(self, w=130, h=190, dw=10, dh=10, skip=17, init_count=0):
@@ -10,7 +11,8 @@ class SlidingWindow:
         self.skip = skip # num of frames to skip before updating the window position
 
         # "current" sliding window position
-        self.counter = init_count
+        self.write_counter = init_count # only counts frames what are writte
+        self.counter = 0 # counts every frame
         self.x1 = 0
         self.y1 = 10
         self.irow = 0
@@ -58,6 +60,12 @@ class SlidingWindow:
             3
         )
 
-    def write_sliding_window_position_to_file(self, filename):
+    def write_frame_and_sliding_window_position(self, frame, frame_subdir, filename):
+        # write frame
+        frame_name = os.path.join(frame_subdir, f"{self.write_counter}.jpeg")
+        cv.imwrite(frame_name, frame)
+
+        # write position
         with open(filename, "a") as f:
-            f.write(f"{self.counter}:{self.x1},{self.y1},{self.x1+self.w},{self.y1+self.h}\n")
+            f.write(f"{self.write_counter}:{self.x1},{self.y1},{self.x1+self.w},{self.y1+self.h}\n")
+        self.write_counter += 1
