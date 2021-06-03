@@ -85,7 +85,7 @@ def prepare_dirs(root, clss, cleanup=False):
         # clear up all previous bounding boxes
         print(f"[INFO] Deleting `{box_file}`.")
         with open(box_file, "w") as f:
-            f.write()
+            f.write("")
     
     elif os.path.exists(subdir):
         # if not cleanup we should append new box info to already exising
