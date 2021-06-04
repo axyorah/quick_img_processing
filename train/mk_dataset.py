@@ -75,7 +75,7 @@ def prepare_dirs(root, clss, cleanup=False):
 
 
     # prepare dirs and files for writing the records
-    counter = 0 # count already exising records (if they don't need to be cleaned up)
+    #counter = 0 # count already exising records (if they don't need to be cleaned up)
     if cleanup:
         # delete the img dir if it exists
         if os.path.exists(subdir):
@@ -83,18 +83,10 @@ def prepare_dirs(root, clss, cleanup=False):
             shutil.rmtree(subdir)
         
         # clear up all previous bounding boxes
-        print(f"[INFO] Deleting `{box_file}`.")
-        with open(box_file, "w") as f:
-            f.write("")
-    
-    elif os.path.exists(subdir):
-        # if not cleanup we should append new box info to already exising
-        with open(box_file, "r") as f:
-            box_content = f.readlines()
-        
-        # Set the counter to the previous highest checkpoint
-        if box_content:
-            counter = int(box_content[-1].split(':')[0]) + 1
+        if os.path.exists(box_file):
+            print(f"[INFO] Deleting `{box_file}`.")
+            with open(box_file, "w") as f:
+                f.write("")
     
     # create img dir if it doesn't exist
     if not os.path.exists(root):
@@ -110,13 +102,12 @@ def prepare_dirs(root, clss, cleanup=False):
         with open(box_file, "w+") as f:
             pass
 
-    return counter
+    #return counter
     
 def add_init_text_to_frame(frame, text):
     h, w = frame.shape[:2]
     xcenter, ycenter = w // 2, h // 2
 
-    #text = args["class"].replace("_", " ")
     fontScale = 2
     fontFace = cv.FONT_HERSHEY_SIMPLEX
     pos = (xcenter - 15*fontScale*len(text)//2, ycenter)
@@ -140,11 +131,11 @@ def main():
 
     subdir = os.path.join(root, clss)
     box_file = os.path.join(root, "boxes_"+clss+".txt")
-    init_record_count = prepare_dirs(root, clss, cleanup)
+    prepare_dirs(root, clss, cleanup)
     
     # initiate sliding window drawer
     print(f"[INFO] Setting the size of a sliding window to {win_w}x{win_h}")
-    writer = BBoxWriter(win_w, win_h, skip_frame, init_count=init_record_count, img_dir=subdir, bbox_file=box_file)    
+    writer = BBoxWriter(win_w, win_h, skip_frame, img_dir=subdir, bbox_file=box_file)    
     
     # prepare frame
     w, h = 640, 480 # frame dimensions
@@ -152,8 +143,8 @@ def main():
     cv.namedWindow(window_name)
 
     # initialize webcam
-    cap = cv.VideoCapture(0)#, cv.CAP_DSHOW)
     print("[INFO] Starting Video Recording...")
+    cap = cv.VideoCapture(0)#, cv.CAP_DSHOW)
 
     # dont record the initial 60 frame, so that there's time to adjust the hand
     init_wait, init_wait_counter = 60, 0

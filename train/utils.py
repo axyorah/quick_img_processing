@@ -4,7 +4,7 @@ import os
 
 class BBoxWriter:
     def __init__(
-        self, w=130, h=190, dw=10, dh=10, skip=17, init_count=0, 
+        self, w=130, h=190, dw=10, dh=10, skip=17,
         img_dir='dataset/hand', bbox_file='dataset/boxes_hand.txt'
         ):
         # paths for saving
@@ -19,12 +19,38 @@ class BBoxWriter:
         self.skip = skip # num of frames to skip before updating the bbox position
 
         # "current" sliding window position
-        self.write_counter = init_count # only counts frames that are written
+        self.write_counter = self.get_init_write_count() # only counts frames that are written
         self.counter = 0 # counts every frame
         self.x1 = 0
         self.y1 = 10
         self.irow = 0
+
+    def get_init_write_count(self):
+        counter = 0
+        if os.path.exists(self.bbox_file):
+            # if file exists we should append new box info to already exising
+            with open(self.bbox_file, "r") as f:
+                box_content = f.readlines()
         
+            # Set the counter to the previous highest checkpoint
+            if box_content:
+                counter = int(box_content[-1].split(':')[0]) + 1
+                
+        return counter   
+
+    def maybe_create_imgdir_and_bboxfile(self):
+        if (not os.path.exists(self.img_dir)) or (not os.path.exists(self.bbox_file)):
+            # reset write counter
+            self.write_counter = 0
+
+            # create dir to store frames
+            os.makedirs(self.img_dir)
+
+            # create file to store bbox records
+            filepath = self.bbox_file.split(os.path.sep)
+            os.makedirs(os.path.join(*filepath[:-1]), exist_ok=True)
+            with open(self.bbox_file, "w") as f:
+                f.write("")     
 
     def update_bbox_position(self, frame, write=False):
         # find position of the sliding window
@@ -73,7 +99,7 @@ class BBoxWriter:
         )
 
     def write_frame_and_bbox_position(self, frame):
-        self.create_imgdir_and_bboxfile_if_needed()
+        self.maybe_create_imgdir_and_bboxfile()
 
         # write frame
         frame_name = os.path.join(self.img_dir, f"{self.write_counter}.jpeg")
@@ -83,17 +109,3 @@ class BBoxWriter:
         with open(self.bbox_file, "a") as f:
             f.write(f"{self.write_counter}:{self.x1},{self.y1},{self.x1+self.w},{self.y1+self.h}\n")
         self.write_counter += 1
-
-    def create_imgdir_and_bboxfile_if_needed(self):
-        if (not os.path.exists(self.img_dir)) or (not os.path.exists(self.bbox_file)):
-            # reset write counter
-            self.write_counter = 0
-
-            # create dir to store frames
-            os.makedirs(self.img_dir)
-
-            # create file to store bbox records
-            filepath = self.bbox_file.split(os.path.sep)
-            os.makedirs(os.path.join(*filepath[:-1]), exist_ok=True)
-            with open(self.bbox_file, "w") as f:
-                f.write("")
