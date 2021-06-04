@@ -8,10 +8,8 @@ most code is taken from:
 
 import cv2 as cv
 import os
-import numpy as np
 import shutil
 import argparse
-import time
 from utils import BBoxWriter
 
 def get_args():
@@ -135,7 +133,7 @@ def main():
     
     # initiate sliding window drawer
     print(f"[INFO] Setting the size of a sliding window to {win_w}x{win_h}")
-    writer = BBoxWriter(win_w, win_h, skip_frame, img_dir=subdir, bbox_file=box_file)    
+    writer = BBoxWriter(win_w, win_h, skip=skip_frame, img_dir=subdir, bbox_file=box_file)    
     
     # prepare frame
     w, h = 640, 480 # frame dimensions
