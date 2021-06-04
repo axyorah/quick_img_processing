@@ -144,7 +144,7 @@ def main():
     
     # initiate sliding window drawer
     print(f"[INFO] Setting the size of a sliding window to {win_w}x{win_h}")
-    writer = BBoxWriter(win_w, win_h, skip_frame, init_count=init_record_count)    
+    writer = BBoxWriter(win_w, win_h, skip_frame, init_count=init_record_count, img_dir=subdir, bbox_file=box_file)    
     
     # prepare frame
     w, h = 640, 480 # frame dimensions
@@ -166,9 +166,6 @@ def main():
         # flip/resize the 
         frame = adjust_frame(frame, (w,h))
     
-        # store the original frame for future ref
-        orig = frame.copy()
-    
         if init_wait_counter == 0:
             print(f"[INFO] Frame size: {frame.shape[1]}x{frame.shape[0]}")
         
@@ -178,11 +175,9 @@ def main():
             add_init_text_to_frame(frame, clss)
             init_wait_counter +=1        
         else:
-            # always update sliding window (bbox) position
-            writer.update_sliding_window_position(frame)
-            # make a record only each `skip` number of frames
-            if not writer.counter % writer.skip:
-                writer.write_frame_and_sliding_window_position(orig, subdir, box_file)
+            # call function to update sliding window (bbox) position on each frame
+            # the actual updates and writes will be done every `skip` number of frames
+            writer.update_sliding_window_position(frame, write=True)
         
         writer.add_sliding_window_to_frame(frame)
     
@@ -193,9 +188,7 @@ def main():
             break
     
     cap.release()
-    cv.destroyAllWindows()
-    #fr.close()
-    
+    cv.destroyAllWindows()    
 
 
 if __name__ == "__main__":
