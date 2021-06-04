@@ -4,7 +4,7 @@ import os
 
 class BBoxWriter:
     def __init__(
-        self, w=130, h=190, dw=10, dh=10, skip=17,
+        self, w=130, h=190, dw=25, dh=20, skip=17,
         img_dir='dataset/hand', bbox_file='dataset/boxes_hand.txt'
         ):
         # paths for saving
