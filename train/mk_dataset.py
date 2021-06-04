@@ -19,9 +19,9 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--datasetroot", 
-        default="hand_gesture_dataset",
+        default="dataset",
         help="desired path for storing the records\n"+\
-            "by default will create directory `hand_gesture_dataset` in current directory"
+            "by default will create directory `dataset` in current directory"
     )
     parser.add_argument(
         "--class", 
