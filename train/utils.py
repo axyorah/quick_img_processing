@@ -107,5 +107,5 @@ class BBoxWriter:
 
         # write position
         with open(self.bbox_file, "a") as f:
-            f.write(f"{self.write_counter}:{self.x1},{self.y1},{self.x1+self.w},{self.y1+self.h}\n")
+            f.write(f"{self.write_counter}.jpeg:{self.x1},{self.y1},{self.x1+self.w},{self.y1+self.h}\n")
         self.write_counter += 1
