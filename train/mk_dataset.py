@@ -175,11 +175,11 @@ def main():
             add_init_text_to_frame(frame, clss)
             init_wait_counter +=1        
         else:
-            # call function to update sliding window (bbox) position on each frame
+            # call function to bbox position on each frame
             # the actual updates and writes will be done every `skip` number of frames
-            writer.update_sliding_window_position(frame, write=True)
+            writer.update_bbox_position(frame, write=True)
         
-        writer.add_sliding_window_to_frame(frame)
+        writer.add_bbox_to_frame(frame)
     
         # show frame
         cv.imshow(window_name, frame)

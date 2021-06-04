@@ -56,8 +56,8 @@ def main():
         frame = adjust_frame(frame, (w,h))
 
         # add sliding window to frame
-        writer.update_sliding_window_position(frame)
-        writer.add_sliding_window_to_frame(frame)
+        writer.update_bbox_position(frame)
+        writer.add_bbox_to_frame(frame)
         
         # display 
         cv.imshow(name, frame)

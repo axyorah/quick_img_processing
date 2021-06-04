@@ -26,7 +26,7 @@ class BBoxWriter:
         self.irow = 0
         
 
-    def update_sliding_window_position(self, frame, write=False):
+    def update_bbox_position(self, frame, write=False):
         # find position of the sliding window
         if not self.counter % self.skip:
             # adjust x1,y1
@@ -59,11 +59,11 @@ class BBoxWriter:
                     self.y1 = 10
 
             if write:
-                self.write_frame_and_sliding_window_position(frame)
+                self.write_frame_and_bbox_position(frame)
 
         self.counter += 1
 
-    def add_sliding_window_to_frame(self, frame):
+    def add_bbox_to_frame(self, frame):
         cv.rectangle(
             frame, 
             (self.x1,self.y1), 
@@ -72,7 +72,7 @@ class BBoxWriter:
             3
         )
 
-    def write_frame_and_sliding_window_position(self, frame):
+    def write_frame_and_bbox_position(self, frame):
         self.create_imgdir_and_bboxfile_if_needed()
 
         # write frame
