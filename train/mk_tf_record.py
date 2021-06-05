@@ -9,19 +9,17 @@ please use tf v2.3.0 or v2.3.1
 
 most code is taken from:
     https://tensorflow-object-detection-api-tutorial.readthedocs.io/en/latest/training.html#create-tensorflow-records
-
-requires you to have tf object_detection repo installed, see:
-    https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/tf2.md
 """
 import hashlib
 import io
+import os
 
 import PIL.Image
 import tensorflow as tf
 import json
 import argparse
 
-from object_detection.utils import dataset_util
+#from object_detection.utils import dataset_util
 
 def get_args():
     """parse input data"""
@@ -44,6 +42,24 @@ def get_args():
     )
 
     return vars(parser.parse_args())
+
+def int64_feature(value):
+  return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+def int64_list_feature(value):
+  return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
+
+def bytes_feature(value):
+  return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+def bytes_list_feature(value):
+  return tf.train.Feature(bytes_list=tf.train.BytesList(value=value))
+
+def float_feature(value):
+  return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+
+def float_list_feature(value):
+  return tf.train.Feature(float_list=tf.train.FloatList(value=value))
 
 def dict_to_tf_example(data, label_map_dict): 
     """Convert JSON derived dict to tf.Example proto.
@@ -94,21 +110,21 @@ def dict_to_tf_example(data, label_map_dict):
             classes.append(label_map_dict[obj["name"]])
 
     example = tf.train.Example(features=tf.train.Features(feature={
-        "image/height": dataset_util.int64_feature(height),
-        "image/width": dataset_util.int64_feature(width),
-        "image/filename": dataset_util.bytes_feature(
+        "image/height": int64_feature(height),
+        "image/width": int64_feature(width),
+        "image/filename": bytes_feature(
             data["filename"].encode("utf8")),
-        "image/source_id": dataset_util.bytes_feature(
+        "image/source_id": bytes_feature(
             data["filename"].encode("utf8")),
-        "image/key/sha256": dataset_util.bytes_feature(key.encode("utf8")),
-        "image/encoded": dataset_util.bytes_feature(encoded_jpg),
-        "image/format": dataset_util.bytes_feature("jpeg".encode("utf8")),
-        "image/object/bbox/xmin": dataset_util.float_list_feature(xmin),
-        "image/object/bbox/xmax": dataset_util.float_list_feature(xmax),
-        "image/object/bbox/ymin": dataset_util.float_list_feature(ymin),
-        "image/object/bbox/ymax": dataset_util.float_list_feature(ymax),
-        "image/object/class/text": dataset_util.bytes_list_feature(classes_text),
-        "image/object/class/label": dataset_util.int64_list_feature(classes)
+        "image/key/sha256": bytes_feature(key.encode("utf8")),
+        "image/encoded": bytes_feature(encoded_jpg),
+        "image/format": bytes_feature("jpeg".encode("utf8")),
+        "image/object/bbox/xmin": float_list_feature(xmin),
+        "image/object/bbox/xmax": float_list_feature(xmax),
+        "image/object/bbox/ymin": float_list_feature(ymin),
+        "image/object/bbox/ymax": float_list_feature(ymax),
+        "image/object/class/text": bytes_list_feature(classes_text),
+        "image/object/class/label": int64_list_feature(classes)
     }))
     return example
 
