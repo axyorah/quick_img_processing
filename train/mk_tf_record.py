@@ -119,7 +119,14 @@ def main(_):
 
     writer = tf.compat.v1.python_io.TFRecordWriter(args["output_path"])
 
-    label_map_dict = {CLASS: i+1 for i,CLASS in enumerate(args["classes"].split(","))}
+    CLASSES = args["classes"].split(",")
+    label_map_dict = {CLASS: i+1 for i,CLASS in enumerate(CLASSES)}
+
+    # store label map as a .pbtxt file in the same dir as .record file
+    DATASETROOT = os.path.join(*args["output_path"].split(os.path.sep)[:-1])
+    with open(os.path.join(DATASETROOT, "label_map.pbtxt"), "w") as f:
+        for i,CLASS in enumerate(CLASSES):
+            f.write(f"item {{\n    id: {i}\n    name: \'{CLASS}\'\n}}")
   
     # get data dict from json file
     with open(args["anno_json"], "r") as f:
