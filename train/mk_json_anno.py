@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 """
 converts bbox records stored in `boxes_< class >.txt` to json
 
