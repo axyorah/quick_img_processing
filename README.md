@@ -176,6 +176,8 @@ To train hand detectors I used custom dataset floowing the procedure shared by a
 
 Hand dataset contains 3907 images of open palm. Hand gensture dataset contains 11056 images of four classes: hand (open palm), fist, "teleportation jutsu", "horns", with approximately 2700 images per class. Each image contains only one object (hand gesture), and both datasetes feature hands that mostly belong to one person (well, me). Additionally, all objects in the dataset are located approximately 1m away from the camera. This drastically narrows down the potential use cases of the detectors trained on these datasets, but for the purposes of this project the datasets are quite sufficient.
 
+Dataset preparation and detector training procedures are described in `.train` subdirectory.
+
 ## 2. Getting Started
 
 Copy this repo to your device by 
