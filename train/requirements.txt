@@ -1,4 +1,4 @@
-tensorflow==2.3.1
+tensorflow==2.5.0
 opencv-python==4.4.0.40
 argparse==1.1
 pillow
