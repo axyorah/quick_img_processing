@@ -145,7 +145,7 @@ def main(_):
     label_map_dict = {CLASS: i+1 for i,CLASS in enumerate(CLASSES)}
     with open(os.path.join(DATASETROOT, "label_map.pbtxt"), "w") as f:
         for i,CLASS in enumerate(CLASSES):
-            f.write(f"item {{\n    id: {i}\n    name: \'{CLASS}\'\n}}")
+            f.write(f"item {{\n    id: {i+1}\n    name: \'{CLASS}\'\n}}")
   
     # write data examples to .record file
     for datum in data:
