@@ -2,8 +2,7 @@
 use example:
     python ./mk_tf_record.py \
     --anno_json ./dataset/anno_train.json \
-    --output_path ./dataset/train.record \
-    --classes hand1,hand2,hand3
+    --output_path ./dataset/train.record
 
 please use tf v2.3.0 or v2.3.1
 
@@ -134,22 +133,21 @@ def main(_):
     args = get_args()
 
     writer = tf.compat.v1.python_io.TFRecordWriter(args["output_path"])
-
-    CLASSES = args["classes"].split(",")
-    label_map_dict = {CLASS: i+1 for i,CLASS in enumerate(CLASSES)}
-
-    # store label map as a .pbtxt file in the same dir as .record file
-    DATASETROOT = os.path.join(*args["output_path"].split(os.path.sep)[:-1])
-    with open(os.path.join(DATASETROOT, "label_map.pbtxt"), "w") as f:
-        for i,CLASS in enumerate(CLASSES):
-            f.write(f"item {{\n    id: {i}\n    name: \'{CLASS}\'\n}}")
   
     # get data dict from json file
     with open(args["anno_json"], "r") as f:
         anno_json = f.read()
     data = json.loads(anno_json)
+
+    # store label map as a .pbtxt file in the same dir as .record file
+    DATASETROOT = os.path.join(*args["output_path"].split(os.path.sep)[:-1])
+    CLASSES = {datum["object"][0]["name"] for datum in data}
+    label_map_dict = {CLASS: i+1 for i,CLASS in enumerate(CLASSES)}
+    with open(os.path.join(DATASETROOT, "label_map.pbtxt"), "w") as f:
+        for i,CLASS in enumerate(CLASSES):
+            f.write(f"item {{\n    id: {i}\n    name: \'{CLASS}\'\n}}")
   
-    # write example in data to .record file
+    # write data examples to .record file
     for datum in data:
         tf_example = dict_to_tf_example(datum, label_map_dict)
         writer.write(tf_example.SerializeToString())
