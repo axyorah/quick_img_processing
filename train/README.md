@@ -105,4 +105,4 @@ eval_input_reader: {
 ```
 
 ## Training
-Finally, we can start training the detector! Check [this colab notebook](https://colab.research.google.com/drive/1-iT15Ib5CIFZtNFER8olIIPASHTyZZ0p?usp=sharing) and follow the instructions from there.
+Finally, we can start training the detector! Check [this colab notebook](https://colab.research.google.com/drive/1-iT15Ib5CIFZtNFER8olIIPASHTyZZ0p?usp=sharing) and follow the instructions.
