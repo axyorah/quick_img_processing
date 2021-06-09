@@ -34,7 +34,7 @@ class BBoxWriter:
         
             # Set the counter to the previous highest checkpoint
             if box_content:
-                counter = int(box_content[-1].split(':')[0]) + 1
+                counter = int(box_content[-1].split(':')[0].split('.')[0]) + 1
                 
         return counter   
 
