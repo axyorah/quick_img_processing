@@ -18,8 +18,6 @@ shape predictor taken from:
 import cv2 as cv
 import numpy as np
 import dlib
-import imutils
-from imutils.video import VideoStream
 import argparse
 import time
 
@@ -28,7 +26,7 @@ from utils.perlin_flow import PerlinFlow
 
 NUM_BEARD_TENTCLS = 13 # hardcoded as it corresponds to 13/15 facial anchor points
 FACEDIM_REF = 1/5      # default face width relative to frame width (used to scale the breard)
-FRAME_WIDTH = 500
+FRAME_WIDTH = 640
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -205,7 +203,8 @@ def main():
     frame_idx = 0 # will be used to sample perlin mtx
     while True:
         _, frame = vc.read()
-        frame = imutils.resize(frame, width=FRAME_WIDTH)
+        h,w,_ = frame.shape
+        frame = cv.resize(frame, (FRAME_WIDTH, FRAME_WIDTH * h // w))
         gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     
         # get bounding boxes for face detections

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import tensorflow as tf
 import cv2 as cv
-import os
+#import os
 import numpy as np
 import time
 
-from utils.perlin_flow import PerlinFlow
-from utils.pattern_utils import Pattern, Polygon
+#from utils.perlin_flow import PerlinFlow
+#from utils.pattern_utils import Pattern, Polygon
 from utils.pattern_utils import \
     FistPatternEffect, HandPatternEffect, \
     JutsuPatternEffect, LightningPatternEffect

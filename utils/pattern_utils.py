@@ -5,7 +5,6 @@ Created on Fri Jan 31 22:03:36 2020
 @author: axeh
 """
 import os
-import time
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
