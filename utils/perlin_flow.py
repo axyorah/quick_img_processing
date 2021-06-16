@@ -12,7 +12,6 @@ perlin tutorial: https://eev.ee/blog/2016/05/29/perlin-noise/
 
 @author: axeh
 """
-
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -185,7 +184,6 @@ if __name__ == '__main__':
     
     pf = PerlinFlow(ver_grid=3, hor_grid=5, 
                     num_octaves=2, points_at_last_octave=4, circular=True)
-    #pf.fig(size=(9,7))
     
     # perlin surface (rectangular and radiating)
     surface  = pf.get_perlin() # rollable perlin surface

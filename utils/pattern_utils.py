@@ -7,7 +7,6 @@ Created on Fri Jan 31 22:03:36 2020
 import os
 import cv2 as cv
 import numpy as np
-import matplotlib.pyplot as plt
 try:
     from utils.perlin_flow import PerlinFlow
 except:

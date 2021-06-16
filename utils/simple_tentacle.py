@@ -4,7 +4,6 @@ Created on Fri Aug  2 17:42:09 2019
 
 @author: axeh
 """
-
 import numpy as np
 
 def rotate_notrig(vec: np.ndarray, direction: tuple):
