@@ -175,9 +175,9 @@ def main():
         #(or use the ones from the previous step)
         faces = detector.detectMultiScale(gray) # [[x,y,w,h]]        
         if not len(faces):
-            continue
-
-        _,landmarks_all = predictor.fit(gray, faces)
+            landmarks_all = []
+        else:
+            _,landmarks_all = predictor.fit(gray, faces)
             
         # go through each detected face
         for landmarks in landmarks_all:
@@ -235,7 +235,7 @@ if __name__ == "__main__":
     # initiate face detector and facial landmark predictor
     detector = cv.CascadeClassifier('dnn/haarcascade_frontalface_alt2.xml')
     predictor = cv.face.createFacemarkLBF()
-    predictor.loadModel('dnn/lbfmodel.yaml')
+    predictor.loadModel('dnn/facial/lbfmodel.yaml')
 
     # get perlin mtx for smooth randomness
     perlin = get_perlin()
