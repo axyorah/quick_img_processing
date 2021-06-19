@@ -186,15 +186,18 @@ Your device should have a functioning camera and [python 3](https://www.python.o
 You can run this project from [docker container](#docker), which will take care of all the dependencies, or you can take care of the dependencies [yourself](#manually).
 
 ### 2.1 Dependencies <a name="manually"></a>
-This project uses the following python packages:
+This project works with python>=3.8 and uses the following python packages:
 ```
-imutils
-argparse
-matplotlib
-opencv-python
-dlib
-tensorflow
-numpy
+setuptools==41.0.0
+pyyaml==5.4.1
+numpy==1.19.2
+matplotlib==3.4.2
+pillow==8.2.0
+opencv-contrib-python==4.4.0.40
+dlib==19.21.0
+torch==1.9.0
+torchvision==0.10.0
+argparse==1.1
 ```
 
 Before installing these packages make sure that their dependencies are taken care of. To compile `dlib` you need to have [cmake](https://cmake.org/) and C++ compiler.</br>
