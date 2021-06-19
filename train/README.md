@@ -24,7 +24,7 @@ In short: first we'll create own hand dataset and store it in a required format,
 ### TensorFlow <a name="setup-tf"></a>
 First, let's sort the dependencies. To use tensorflow object detection API we'll need:
 ```
-tensorflow==2.4.1
+tensorflow==2.4.2
 opencv-python==4.4.0.40
 argparse==1.1
 pillow
@@ -94,7 +94,7 @@ dataset
 ```
 
 ## Convert Dataset to Correct Format <a name="format"></a>
-### TensroFlow <a name="format-tf"></a>
+### TensorFlow <a name="format-tf"></a>
 Once you've collected enough records, we can split the dataset into train and test sets and write the annotations in `json` for easier parsing later on. To do that run:
 ```bash
 $ python mk_json_anno.py --datasetroot dataset --classes hand1,hand2,hand3
@@ -102,7 +102,7 @@ $ python mk_json_anno.py --datasetroot dataset --classes hand1,hand2,hand3
 Use `datasetroot` to specify your dataset root directory. Use `classes` to specify all the recorded classes separated by commas.
 Running `mk_anno_json.py` will create three files (`anno_train.json`, `anno_test.json` and `anno_all.json`) in your dataset root directory. 
 
-Once this is done, we have everything ready to create tensorflow `.record` files required for tensorflow object detection API. To do that run the comman below (Notice, that `mk_tf_record.py` requires tensorflow v2.3!):
+Once this is done, we have everything ready to create tensorflow `.record` files required for tensorflow object detection API. To do that run the comman below (Notice, that `mk_tf_record.py` requires tensorflow v2.3 or v2.4!):
 ```bash
 $ python mk_tf_record.py --anno_json ./dataset/anno_train.json --output_path ./dataset/train.record
 ```
