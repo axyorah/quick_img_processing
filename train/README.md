@@ -24,7 +24,7 @@ In short: first we'll create own hand dataset and store it in a required format,
 ### TensorFlow <a name="setup-tf"></a>
 First, let's sort the dependencies. To use tensorflow object detection API we'll need:
 ```
-tensorflow==2.3.1
+tensorflow==2.4.1
 opencv-python==4.4.0.40
 argparse==1.1
 pillow
