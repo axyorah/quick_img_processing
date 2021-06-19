@@ -14,7 +14,6 @@ shape predictor taken from:
     https://github.com/AKSHAYUBHAT/TensorFace/blob/master/openface/models/dlib/shape_predictor_68_face_landmarks.dat
 
 """
-
 import cv2 as cv
 import numpy as np
 import dlib
@@ -36,7 +35,7 @@ def get_args():
             "should be a float from 0+ to 0.5")
     parser.add_argument(
         "-p", "--shapepredictor", 
-        default="./dnn/shape_predictor_68_face_landmarks.dat",
+        default="./dnn/facial/shape_predictor_68_face_landmarks.dat",
         help="path to dlib shape predictor (.dat)\n"+\
             "cat be downloaded from\n"+\
             "https://github.com/AKSHAYUBHAT/TensorFace/blob/master/"+\
@@ -211,8 +210,8 @@ def main():
         #(or use the ones from the previous step)
         faces = detector(gray, 1)
     
-        # go through each detected face        
-        for face in faces:   
+        # go through each detected face
+        for face in faces:
             # get 68 facial landmarks for current face
             landmarks_raw = predictor(gray, face)
             landmarks     = shape2np(landmarks_raw)
@@ -228,8 +227,8 @@ def main():
             # estimate face dimension relative to the frame
             face_scale = get_face_scaling_factor(landmarks)
         
-            # use landmarks 3-16 to draw tentacle beard            
-            for lndmrk_idx in range(2,2+NUM_BEARD_TENTCLS,1):             
+            # use landmarks 3-16 to draw tentacle beard
+            for lndmrk_idx in range(2,2+NUM_BEARD_TENTCLS,1):
                 draw_tentacle_by_idx(
                     frame, frame_idx, landmarks, lndmrk_idx, 
                     beard_center, face_scale)
@@ -264,7 +263,7 @@ def main():
 
 if __name__ == "__main__":    
     args = get_args()
-    
+
     # initiate face detector and facial landmark predictor
     detector = dlib.get_frontal_face_detector()
     predictor = dlib.shape_predictor(args["shapepredictor"])
