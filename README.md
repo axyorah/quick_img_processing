@@ -1,7 +1,7 @@
 # Brain Dump for Some Quick Image Processing Projects
 ## 1. What's it all about anyway
 
-This is a dedicated repo to dump some quick image processing projects inspired by amazing [Adrian Rosebrock's](https://www.pyimagesearch.com/) blog. I'll be updating this repo as more things pile up. Feel free to use the code as a starting point for something more elaborate.<br>
+This is a dedicated repo to dump some quick image processing projects inspired by [Adrian Rosebrock's](https://www.pyimagesearch.com/) blog. Feel free to use the code as a starting point for something more elaborate.<br>
 Here's a brief description of the available projects.
 
 <table style="width:100%">
@@ -76,20 +76,19 @@ Here's a brief description of the available projects.
             <br>
             <ul>
                 <li>The most compute-heavy part of this project is the hand detector 
-                    (<code>dnn/efficientdet_hand_detector/</code>): 
+                    (YOLOv5s): 
                 </li>
                     <ul style="list-style-type:circle;">
                         <li>
-                            Base architecture: <a href="https://arxiv.org/abs/1512.02325">SSD</a> detector with <a href="download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d0_coco17_tpu-32.tar.gz">EfficientDet D0 512x512</a> backbone trained on 
-                            <a href="http://cocodataset.org/#home">COCO dataset</a> 
-                            available out-of-the-box from 
-                            <a href="https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md">tensorflow</a>;
+                            Base architecture: smallest YOLOv5 detector with Darknet backbone pretrained on <a href="http://cocodataset.org/#home">COCO dataset</a> as provided by 
+                            <a href="https://github.com/ultralytics/yolov5">
+                            Ultralytics</a>;
                         </li>
                         <li>
-                            Assembled with 
-                            <a href="https://github.com/tensorflow/models/tree/master/research/object_detection">Tensorflow Object Detection API</a> 
-                            and trained on 
-                            <a href="#customdataset">custom dataset</a> with 3907 images of a hand (open palm);
+                            Assembled with <a href="https://github.com/ultralytics/yolov5">
+                            Ultralytics</a>-provided training API 
+                            <a href="#customdataset">custom dataset</a> with 3907 images of a hand (open palm). You can check the training details
+                            in `train` directory.
                         </li>
                     </ul>
                 <li>Each video frame is fed to the hand detector, 
@@ -104,8 +103,9 @@ Here's a brief description of the available projects.
                 </li>
                 <li>
                     For face detection (needed for bluring the corresponding area)
-                    I use simple <a href="https://docs.opencv.org/3.4.1/d7/d8b/tutorial_py_face_detection.html">HAAR cascade</a>, 
-                    available from <a href="https://github.com/opencv/opencv/tree/master/data/haarcascades">OpenCV</a>.
+                    I use ResNet-based detector available out-of-the-box from OpenCV 
+                    <code>dnn</code> module. Model architecture file is copied from 
+                    <a href="https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt">here</a>. Weights for face detector are copied from <a href="https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel">here</a>.
                 </li>
             </ul>
         </td>
@@ -118,8 +118,8 @@ Here's a brief description of the available projects.
             <b>DnD Enhancer</b>
             <br>
             <br>
-            Has 2020  disrupted your DnD sessions and you had to migrate to Skype? 
-            Well, at least you use some image processing magic to make DnD magic feel more lively....
+            Has 2020  disrupted your DnD sessions and you had to migrate to Skype/Zoom? 
+            Well, at least you can use some image processing magic to make DnD magic feel more lively....
             As long as you're ok with casting spells by means of waving hand signs, of course.
             <br>
             <br>
@@ -143,13 +143,9 @@ Here's a brief description of the available projects.
             <ul>
                 <li> <b>Dataset</b>. For this project I use <a href="#customdataset">custom hand gesture</a> dataset with 11056 images belonging to four classes, as described below.
                 </li> 
-                <li><b>Model</b>. This project uses <a href="https://arxiv.org/abs/1512.02325">SSD</a> detector with 
-                <a href="https://arxiv.org/abs/1704.04861">MobileNet</a> backbone pretrained on <a href="https://cocodataset.org/#home">COCO</a> dataset 
-                downloaded from <a href="https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/tf1_detection_zoo.md">
-                Tensorflow Detection Model Zoo</a>. The model was assembled with 
-                <a href="https://github.com/tensorflow/models/tree/master/research/object_detection">Tensorflow Object Detection API</a> 
-                and trained on a dataset described above for about 7000 steps on GPU. 
-                Model's <code>.pb</code> file and <code>variables</code> are available in <code>dnn/ssd_mobilenet_gesture_detector/</code>.
+                <li><b>Model</b>. This project uses smallest YOLOv5 with Darknet backbone
+                pretrained on <a href="https://cocodataset.org/#home">COCO</a> dataset 
+                as provided by <a href="https://github.com/ultralytics/yolov5">Ultralytics</a>. The model was assembled with Ultralytics-provided API and trained for 3 epochs on GPU.
                 </li>
                 <li> <b>Pattern Effects</b>
                     <ul>
@@ -275,3 +271,8 @@ $ python casting_hands.py
 ```
 
 To stop press `q`.
+
+## 4. Acknowledgements
+- To train hand/gesture detectors I use API provided by [Ultralytics](https://github.com/ultralytics/yolov5). Additionally, I use some of their helper functions to assemble the model from saved weights (`./utils/yolo_utils_by_ultralytics/`).
+- For face detection I use detectors available out-of-the-box from [OpenCV `dnn` module](https://github.com/opencv/opencv/tree/master/samples/dnn). Face detector model architecture file is copied from <a href="https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt">here</a>. Weights for face detector are copied from <a href="https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel">here</a>.
+- To quicly create a custom dataset for object detection I use procedure described in [LearnOpenCV blog](https://www.learnopencv.com/training-a-custom-object-detector-with-dlib-making-gesture-controlled-applications/?ck_subscriber_id=546165186).
