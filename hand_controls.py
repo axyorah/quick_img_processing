@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 
 import numpy as np
-import tensorflow as tf
+import torch
 import cv2 as cv
 import argparse
 import time
 from utils.hand_utils import mk_buttons, add_buttons, blur_box
+from utils.yolo_utils_by_ultralytics.yolo import Model
 
-FACE_FILTER_PATH  = "./dnn/haarcascade_frontalface_default.xml"
-DETECTOR_DIR = "./dnn/efficientdet_hand_detector/"
+FACE_FILTER_PROTO = "./dnn/facial/face_deploy.prototext"
+FACE_FILTER_RCNN = "./dnn/facial/face_res10_300x300_ssd_iter_140000.caffemodel"
+HAND_DETECTOR_YAML = "./dnn/yolov5s.yaml"
+HAND_DETECTOR_DICT = "./dnn/yolov5_palm_state_dict.pt"
+
+IMGSZ = 448
+DEVICE = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+HALF = False
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -26,24 +33,42 @@ def get_args():
 
     return args
 
+def load_yolo_model(cfg_path, state_dict_path, num_classes, device=torch.device('cpu'), half=False):
+    # restore model from state_dict checkpoint
+    detector = Model(cfg=cfg_path, nc=num_classes)
+    ckpt = torch.load(state_dict_path)
+    detector.load_state_dict(ckpt['model_state_dict'])
+
+    # add non-max suppression
+    detector.nms()
+
+    # adjust precision
+    if half:
+        detector.half()
+    else:
+        detector.float()
+
+    # use cuda is available
+    detector.to(device)
+
+    # switch to inference mode
+    detector.eval()
+    return detector
+
 def get_hand_masks(detections, frame, threshold=0.5,
                    show_bbox=0, show_mask=0):
     h,w = frame.shape[:2]
     handmask = np.zeros(frame.shape)
-    for box,clss,score in zip(detections["detection_boxes"][0], # 0-dim - batch
-                              detections["detection_classes"][0],
-                              detections["detection_scores"][0]):
-        box = box.numpy()
-        clss = clss.numpy().astype(np.uint32) # 1,2,3... (0 is reserved for background)
-        score = score.numpy()
-
-        # detections are sorted based on object probability scores in descending order;
-        # stop when score drops below threshold 
-        if score < threshold:
-            break
+    for x1,y1,x2,y2,prob,clss in detections:
+        if prob < 0.5:
+            continue
+        # get box coordinates
+        x1,x2 = map(lambda x: int(x * w / IMGSZ), [x1, x2])        
+        y1,y2 = map(lambda y: int(y * h / IMGSZ), [y1, y2])
+        clss = int(clss)
 
         # get box coordinates
-        y1,x1,y2,x2 = (box*np.array([h,w,h,w])).astype(int)
+        #y1,x1,y2,x2 = (box*np.array([h,w,h,w])).astype(int)
         handmask[y1:y2,x1:x2,:] = 255
 
         # show additional info if requested
@@ -61,10 +86,17 @@ def adjust_frame(frame, tar_sz):
     frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
     return frame
 
-def preprocess_frame(frame):
-    input_tensor = np.expand_dims(frame, axis=0)
-    input_tensor = tf.convert_to_tensor(input_tensor, dtype=tf.uint8)
-    return input_tensor
+def preprocess_frame(frame, sz, device=None, half=False):
+    if device is None:
+        device = torch.device('cpu')
+    tensor = cv.resize(frame, sz)    
+    tensor = tensor.transpose(2, 0, 1)
+    tensor = torch.from_numpy(tensor)
+    tensor = torch.unsqueeze(tensor, 0)
+    tensor = tensor.half() if half else tensor.float()
+    tensor = tensor / 255.0
+    tensor = tensor.to(device)
+    return tensor
 
 def get_aspect_ratio(frame):
     h,w = frame.shape[:2]
@@ -86,8 +118,20 @@ def update_params(buttons, handmask, params, overlap_threshold=0.75):
     return params
 
 def detect_faces(frame):
-    gray  = cv.cvtColor(frame, cv.COLOR_RGB2GRAY)
-    return face_cascade.detectMultiScale(gray, 1.3, 5)
+    blob = cv.dnn.blobFromImage(
+        cv.resize(frame, (300,300)), 1.0, (300,300), (104.0, 177.0, 123.0)
+    )
+    face_detector.setInput(blob)
+    face_detections = face_detector.forward()
+    faces = []
+    for i in range(face_detections.shape[2]):
+        p,x1,y1,x2,y2 = face_detections[0,0,i,2:7]
+        if p < 0.5:
+            continue
+        x1,x2 = map(lambda x: int(x * frame.shape[1]), [x1,x2])
+        y1,y2 = map(lambda y: int(y * frame.shape[0]), [y1,y2])
+        faces.append([x1, y1, x2-x1, y2-y1])
+    return faces
 
 def blur_faces(frame, faces, params):
     blur = params["blur"]
@@ -98,7 +142,7 @@ def blur_faces(frame, faces, params):
         blur_box(frame, (x,y), (x+w,y+h), k, sigma)
 
 
-def main():
+def main():    
     # initiate video stream
     vc = cv.VideoCapture(0)
     time.sleep(2)
@@ -122,11 +166,13 @@ def main():
             frame, (params["width"], int(params["width"] * aspect_ratio)))
 
         # convert to correct format for tf 
-        input_tensor = preprocess_frame(frame)
+        #input_tensor = preprocess_frame(frame)
+        input_tensor = preprocess_frame(frame, (IMGSZ, IMGSZ), device=DEVICE, half=half)
     
         # get hand detections for current frame
         #(will always make 100 detections sorted by object probability score)
-        hand_detections = detect_hands(input_tensor)
+        #hand_detections = detect_hands(input_tensor)
+        hand_detections = hand_detector(input_tensor)[0]
 
         # get hand masks
         handmask = get_hand_masks(
@@ -142,6 +188,7 @@ def main():
         
         # get face bbox and update face blur        
         faces = detect_faces(frame)
+
         blur_faces(frame, faces, params)
 
         # display final frame
@@ -157,15 +204,24 @@ def main():
 if __name__ == "__main__":
     args = get_args()
 
+    # adjust float precision: if no cuda - use float32
+    half = False if DEVICE.type == 'cpu' else HALF
+
     # load buttons and masks
     buttons = mk_buttons()
 
     # get out-of-the-box face filter from opencv
-    face_cascade = cv.CascadeClassifier(FACE_FILTER_PATH)
+    face_detector = cv.dnn.readNetFromCaffe(
+        FACE_FILTER_PROTO,
+        FACE_FILTER_RCNN
+    )
 
     # load the inference model for hand detector
-    tf.keras.backend.clear_session()
-    detect_hands = tf.saved_model.load(DETECTOR_DIR)
+    hand_detector = load_yolo_model(
+        HAND_DETECTOR_YAML,
+        HAND_DETECTOR_DICT,
+        num_classes=1, device=DEVICE, half=half
+    )
     classes = ["hand"]
 
     main()

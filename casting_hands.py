@@ -1,52 +1,75 @@
 #!/usr/bin/env python3
-import tensorflow as tf
+import torch
 import cv2 as cv
-import numpy as np
 import time
 
 from utils.pattern_utils import \
     FistPatternEffect, HandPatternEffect, \
     JutsuPatternEffect, LightningPatternEffect
+from utils.yolo_utils_by_ultralytics.yolo import Model
 
-DETECTOR_DIR = "./dnn/ssd_mobilenet_gesture_detector/"
+DETECTOR_DICT = "./dnn/yolov5_gesture_state_dict.pt"
+DETECTOR_YAML = "./dnn/yolov5s.yaml"
+IMGSZ = 448
+DEVICE = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+HALF = False
+
+def load_model(cfg_path, state_dict_path, device=torch.device('cpu'), half=False):
+    # restore model from state_dict checkpoint
+    detector = Model(cfg=cfg_path, nc=5)
+    ckpt = torch.load(state_dict_path)
+    detector.load_state_dict(ckpt['model_state_dict'])
+
+    # add non-max suppression
+    detector.nms()
+
+    # adjust precision
+    if half:
+        detector.half()
+    else:
+        detector.float()
+
+    # use cuda is available
+    detector.to(device)
+
+    # switch to inference mode
+    detector.eval()
+    return detector
 
 def adjust_frame(frame, tar_sz):
     frame = cv.resize(frame, tar_sz)
     frame = cv.flip(frame, 1)
     return frame
 
-def preprocess_frame(frame):
-    input_tensor = np.expand_dims(frame, axis=0)
-    return tf.convert_to_tensor(input_tensor, dtype=tf.uint8)
+def preprocess_frame(frame, sz, device='cpu', half=False):
+    tensor = cv.resize(frame, sz)    
+    tensor = tensor.transpose(2, 0, 1)
+    tensor = torch.from_numpy(tensor)
+    tensor = torch.unsqueeze(tensor, 0)
+    tensor = tensor.half() if half else tensor.float()
+    tensor = tensor / 255.0
+    tensor = tensor.to(device)
+    return tensor
 
-def draw_effects(frame, detections):
+def draw_effects(frame, detections, classes):
     h,w = frame.shape[:2]
 
     jutsu_detected, lightning_detected = False, False
     jutsu_pt1, jutsu_pt2 = (None,None), (None,None) #TODO: make explosion appear from the center of the box
     lightning_pt1, lightning_pt2 = (None,None), (None,None)
     
-    for box,clss,score in zip(detections["detection_boxes"][0], # 0-dim - batch
-                              detections["detection_classes"][0],
-                              detections["detection_scores"][0]):
-        box = box.numpy()
-        clss = clss.numpy().astype(np.uint32) # 1,2,3... (0 is reserved for background)
-        score = score.numpy()
-
-        # detections are sorted based on object probability scores in descending order;
-        # stop when score drops below threshold (0.5)
-        if score < 0.5:
-            break
-
+    for x1,y1,x2,y2,prob,clss in detections:
         # get box coordinates
-        y1,x1,y2,x2 = (box*np.array([h,w,h,w])).astype(int)
-        
+        x1,x2 = map(lambda x: int(x * w / IMGSZ), [x1, x2])        
+        y1,y2 = map(lambda y: int(y * h / IMGSZ), [y1, y2])
+        clss = int(clss)
+
         # Recall: class indices start from 1 (0 is reserved for background)
-        if classes[clss-1] == "hand":
+        if classes[clss] == "hand":
             handpattern.draw_pattern(frame, (x1,y1), (x2,y2))
-        elif classes[clss-1] == "fist":
+        elif classes[clss] == "fist":
             fistpattern.draw_pattern(frame, (x1,y1), (x2,y2))            
-        elif classes[clss-1] == "teleportation_jutsu":
+        elif classes[clss] == "teleportation_jutsu":
             # we can't afford many false-positives for teleportation_jutsu
             # as each detection would trigger 20-frames-long uninterruptible animation;
             # so let's store bollean `jutsu_detected` over the last 10 frames
@@ -54,7 +77,7 @@ def draw_effects(frame, detections):
             #(this is resolved in JutsuPatternEffect.draw_pattern())
             jutsu_detected = True
             jutsu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)
-        elif classes[clss-1]  == "horns":
+        elif classes[clss]  == "horns":
             lightning_detected = True
             lightning_pt1, lightning_pt2 = (x1,y1), (x2,y2)
     jutsupattern.draw_pattern(
@@ -64,6 +87,13 @@ def draw_effects(frame, detections):
 
 
 def main():
+    # adjust float precision: if no cuda - alawys use float32 instead of float16/float32
+    half = False if DEVICE.type == 'cpu' else HALF
+
+    # load model
+    detector = load_model(DETECTOR_YAML, DETECTOR_DICT, device=DEVICE, half=half)
+    classes = ['fist', 'hand', 'horns', 'teleportation_jutsu', 'tori_sign']
+
     # start video capture
     cv.namedWindow("frame")
     w,h = 640, 480
@@ -81,14 +111,13 @@ def main():
         frame = adjust_frame(frame, (w,h))
 
         # convert to right format
-        input_tensor = preprocess_frame(frame)
+        input_tensor = preprocess_frame(frame, (IMGSZ, IMGSZ), device=DEVICE, half=half)
     
         # get detections for current frame
-        #(will always make 100 detections sorted by object probability score)
-        detections = detect_fn(input_tensor)
+        detections = detector(input_tensor)[0]
 
         # check detections and draw corresponding effects
-        draw_effects(frame, detections)        
+        draw_effects(frame, detections, classes)        
         
         # display 
         cv.imshow("press `q` to quit", frame)
@@ -100,11 +129,6 @@ def main():
     cv.destroyAllWindows()
 
 if __name__ == "__main__":
-    # load hand gesture qdetector
-    tf.keras.backend.clear_session()
-    detect_fn = tf.saved_model.load(DETECTOR_DIR)
-    classes = ["hand", "fist", "teleportation_jutsu", "tori_sign", "horns"]
-
     # define class effects
     fistpattern = FistPatternEffect()
     handpattern = HandPatternEffect()
