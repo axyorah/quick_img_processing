@@ -1,7 +1,7 @@
 # Training Own Object Detector 
 
 - [Setup the Environment](#setup)
-  - [TnesorFlow](#setup-tf)
+  - [TensorFlow](#setup-tf)
   - [YOLOv5-Ultralytics-PyTorch](#setup-yolo)
 - [Create Dataset](#ds)
 - [Convert Dataset to Correct Format](#format)
@@ -18,7 +18,7 @@ This directory contains scripts that you can use to train your own object detect
 
 In short: first we'll create own hand dataset and store it in a required format, then we'll use these records and some supplementary files to train the detector. 
 
-<p style="font-size: 8pt;">YOLOv5 training procedure is very toroughly documented by <a href="https://github.com/ultralytics/yolov5">Ultralytics</a>, so additional comments from my side might seem a bit redundant. Still, I'll leave those here just for the same of completeness, since this project uses YOLOv5.</p>
+<p style="font-size: 8pt;">YOLOv5 training procedure is very toroughly documented by <a href="https://github.com/ultralytics/yolov5">Ultralytics</a>, so additional comments from my side might seem a bit redundant. Still, I'll leave those here just for the sake of completeness, since this project uses YOLOv5.</p>
 
 ## Setup the Environment <a name="setup"></a>
 ### TensorFlow <a name="setup-tf"></a>
@@ -57,7 +57,7 @@ $ pip install -r requirements.txt
 ```
 
 ## Create Dataset <a name="ds"></a>
-We'll create a very simplictic dataset with only one object per image. This is not particularly good, but using the procedure described in [this blog](https://www.learnopencv.com/training-a-custom-object-detector-with-dlib-making-gesture-controlled-applications/?ck_subscriber_id=546165186) we'll be able to create our dataset very fast (no manual labelling required!). Besides, for all the purposes that we'd want to use this dataset it would be quite sufficient. In short: we'll *first* set the positions of the bounding boxes, and *then* try to fit the hand into box on each frame.
+We'll create a very simplictic dataset with only one object per image. This is not particularly good, but using the procedure described in [this blog](https://www.learnopencv.com/training-a-custom-object-detector-with-dlib-making-gesture-controlled-applications/?ck_subscriber_id=546165186) we'll be able to create our dataset very fast (no manual labelling required!). Besides, for all the purposes that we'd want to use this dataset it would be quite sufficient. In short: we'll *first* set the positions of the bounding boxes and *then* try to fit the hand into box on each frame.
 
 Before creating the dataset, you can run the `camera_test.py` to test your camera and adjust the bounding box size (`winsize` = `width`x`height`) and striding speed (`skip` = number of frames skipped before taking a record):
 ```bash
@@ -95,7 +95,7 @@ dataset
 
 ## Convert Dataset to Correct Format <a name="format"></a>
 ### TensorFlow <a name="format-tf"></a>
-Once you've collected enough records, we can split the dataset into train and test sets and write the annotations in `json` for easier parsing later on. To do that run:
+Once you've collected enough records we can split the dataset into train and test sets and write the annotations in `json` for easier parsing later on. To do that run:
 ```bash
 $ python mk_json_anno.py --datasetroot dataset --classes hand1,hand2,hand3
 ```
@@ -162,13 +162,13 @@ $ python mk_yolov5_record.py --src dataset --tar dataset_yolov5
 ```
 This will create a new directory (`dataset_yolov5`) with required structure.
 
-## Adjust Model COnfiguration <a name="config"></a>
+## Adjust Model Configuration <a name="config"></a>
 ### TensorFlow <a name="config-tf"></a>
-One last thing we need to sort before we can start training the detector is model `.config` file. This directory contains sample config file that you can use to train efficientdet0 (`efficientdet_d0_coco17_tpu-32_pipeline.config`). Alternatively you can pull blank config file from [here](https://github.com/tensorflow/models/tree/master/research/object_detection/configs/tf2), e.g.:
+One last thing we need to sort before we can start training the detector is model `.config` file. This directory contains sample config file that you can use to train efficientdet0 (`efficientdet_d0_coco17_tpu-32_pipeline.config`). Alternatively you can pull a blank config file from [here](https://github.com/tensorflow/models/tree/master/research/object_detection/configs/tf2), e.g.:
 ```bash
 $ wget https://raw.githubusercontent.com/tensorflow/models/master/research/object_detection/configs/tf2/ssd_efficientdet_d0_512x512_coco17_tpu-8.config
 ```
-You'd need to fill the blanks at the end of the file to look something like this:
+You'd need to fill the blanks at the end of the file to make it look something like this:
 ```python
 ...
   fine_tune_checkpoint: "./mymodels/efficientdet_d0_coco17_tpu-32/checkpoint/ckpt-0" # path to your model checkpoint (see colab notebook)
