@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+from typing import List, Tuple, Dict, Optional, Union
 import numpy as np
 
-def rotate_notrig(vec: np.ndarray, direction: tuple):
+def rotate_notrig(vec: np.ndarray, direction: tuple) -> np.ndarray:
     """rotate (2,1) vector or (2,N) mtx (N vectors) 
     by an angle between Ox and vector with direction (x,y)
     :type vec: (2,N)-array
@@ -16,7 +17,7 @@ def rotate_notrig(vec: np.ndarray, direction: tuple):
         [si,  co]
     ]).dot(vec)
 
-def rotate(vec, angle):
+def rotate(vec: np.ndarray, angle: float) -> np.ndarray:
     """rotate (2,1) vector or (2,N) mtx (N vectors) by given angle around origin
     :type vec: (2,N)-array
     :type angle: float
@@ -28,57 +29,58 @@ def rotate(vec, angle):
 
     
 class SimpleTentacleBuilder:
-    def __init__(self, tentacle):
+    def __init__(self, tentacle: 'SimpleTentacle'):
         self.tentacle = tentacle
         
-    def num_joints(self, _num_joints):
+    def num_joints(self, _num_joints: int) -> 'SimpleTentacleBuilder':
         self.tentacle._num_joints = _num_joints
         return self
         
-    def segment_decay(self, _segment_decay):
+    def segment_decay(self, _segment_decay: float) -> 'SimpleTentacleBuilder':
         assert _segment_decay > 0 and _segment_decay <= 1,\
                "segment_decay should be between 0 and 1"
         self.tentacle._segment_decay = _segment_decay
         return self
 
-    def scale(self, _scale):
+    def scale(self, _scale: float) -> 'SimpleTentacleBuilder':
         self.tentacle._scale = _scale
         return self
 
-    def root(self, _root):
+    def root(self, _root: Union[List[float], np.ndarray]) -> 'SimpleTentacleBuilder':
+        """[x,y] coord of the anchor point"""
         self.tentacle._root = _root
         return self
 
-    def arm_angle(self, _arm_angle):
+    def arm_angle(self, _arm_angle: Union[float, Tuple[float,float]]) -> 'SimpleTentacleBuilder':
+        """angle (float, [radians]) or direction ([x,y] vector) at root"""
         self.tentacle._arm_angle = _arm_angle
         return self
 
-    def max_angle_between_segments(self, _max_angle_between_segments):
+    def max_angle_between_segments(self, _max_angle_between_segments: float) -> 'SimpleTentacleBuilder':
+        """in radians"""
         self.tentacle._max_angle_between_segments = _max_angle_between_segments
         return self
 
-    def angle_freq(self, _angle_freq):
+    def angle_freq(self, _angle_freq: float) -> 'SimpleTentacleBuilder':
         self.tentacle._angle_freq = _angle_freq
         return self
 
-    def angle_phase_shift(self, _angle_phase_shift):
+    def angle_phase_shift(self, _angle_phase_shift: float) -> 'SimpleTentacleBuilder':
+        """in radians"""
         self.tentacle._angle_phase_shift = _angle_phase_shift
         return self
 
-    def flip(self, _flip):
+    def flip(self, _flip: bool) -> 'SimpleTentacleBuilder':
         self.tentacle._flip = _flip
         return self
     
-    def build(self):
+    def build(self) -> 'SimpleTentacle':
         coeff = 1 - self.tentacle._segment_decay        
         self.tentacle.segments = [
             coeff**i for i in range(self.tentacle._num_joints)
         ]
         return self.tentacle
     
-    def solve(self):
-        #self.build() # sets segments
-        return self.tentacle.solve() # returns coords of joints
 
 class SimpleTentacle:
     def __init__(self):        
@@ -94,10 +96,10 @@ class SimpleTentacle:
         self._flip = False
         
     @property
-    def set(self):
+    def set(self) -> 'SimpleTentacleBuilder':
         return SimpleTentacleBuilder(self)
     
-    def _get_angles_between_segments(self):
+    def _get_angles_between_segments(self) -> np.ndarray:
         # tanh modifier is a fugly fix to ensure that
         # no matter the `angle_phase_shift` first segment stays horizontal
         return \
@@ -107,7 +109,7 @@ class SimpleTentacle:
                 self._angle_phase_shift
             ) * np.tanh(np.linspace(0, 10, self._num_joints) + 1)
             
-    def _get_raw_joints(self, angles_between_segments):
+    def _get_raw_joints(self, angles_between_segments) -> np.ndarray:
         """
         returns coordinates of raw joints connecting segments;
         raw = default scale of 1, default root of (0,0), 
@@ -128,7 +130,7 @@ class SimpleTentacle:
         return np.concatenate(joints, axis=1)
         
    
-    def solve(self):
+    def solve(self) -> np.ndarray:
         """
         returns coordinates of joints (2,num_joints) of the wiggled tentacle
         starting from `root` and 
@@ -136,7 +138,7 @@ class SimpleTentacle:
         Wiggliness is achieved by adjusting the angle between segments:
         the angle follows sin law and can be adjusted via:
         - max_angle_between_segments - ...
-        - angle_freq - num of tentacle flexes (humps?)
+        - angle_freq - num of tentacle convex parts
         - angle_phase_shift - ensures that the tentacle flexes both ways
         """
         # get teh angles between segments
