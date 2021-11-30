@@ -102,16 +102,24 @@ def init(perlin, max_seg=23, min_seg=10):
         flip array (all the left-side tentacles should be flipped)
     """
     # base values for some characteristic features
-    joint_base     = np.random.randint(min_seg,max_seg, NUM_BEARD_TENTCLS)
-    tentacle_base  = [SimpleTentacle(joint_base[i])
-                      for i in range(NUM_BEARD_TENTCLS)]
-    scale_base     = [13 + 13*np.sin(angle) 
-                      for angle in np.linspace(0,np.pi,NUM_BEARD_TENTCLS)]
-    flip_base      = [True if i < NUM_BEARD_TENTCLS//2 else False
-                      for i in range(NUM_BEARD_TENTCLS)]
-    perlin_base    = np.random.choice(range(perlin.shape[0]), NUM_BEARD_TENTCLS)
-    color_base     = [(np.random.randint(100,200), np.random.randint(100,230), 0)
-                      for _ in range(NUM_BEARD_TENTCLS)]
+    joint_base  = np.random.randint(min_seg,max_seg, NUM_BEARD_TENTCLS)
+    tentacle_base  = [
+        SimpleTentacle().set.num_joints(joint_base[i]).build()
+        for i in range(NUM_BEARD_TENTCLS)
+    ]
+    scale_base = [
+        13 + 13*np.sin(angle) 
+        for angle in np.linspace(0,np.pi,NUM_BEARD_TENTCLS)
+    ]
+    flip_base = [
+        True if i < NUM_BEARD_TENTCLS//2 else False
+        for i in range(NUM_BEARD_TENTCLS)
+    ]
+    perlin_base  = np.random.choice(range(perlin.shape[0]), NUM_BEARD_TENTCLS)
+    color_base  = [
+        (np.random.randint(100,200), np.random.randint(100,230), 0)
+        for _ in range(NUM_BEARD_TENTCLS)
+    ]
     thickness_base = [8 * 0.95**i for i in range(max_seg)]
 
     return {
@@ -156,21 +164,27 @@ def draw_tentacle_by_idx(
     # sample perlin mtx for smooth "randomness"
     perlin_random = perlin[perlin_base[idx], frame_idx % perlin.shape[1]]
 
-    t = tentacle_base[idx].get_wiggly_tentacle(
-        int(np.round(scale * scale_base[idx])),
-        landmarks[lndmrk_idx],
-        (x,y),
-        max_angle_between_segments=args["wigl"]*np.pi * perlin_random,
-        angle_freq=1 * perlin_random,
-        angle_phase_shift=2*np.pi * perlin_random,
-        flip=flip_base[idx]
-        ).astype(int)
-
+    t = tentacle_base[idx].\
+        set\
+            .scale(int(np.round(scale * scale_base[idx])))\
+            .root(landmarks[lndmrk_idx])\
+            .arm_angle((x,y))\
+            .max_angle_between_segments(args["wigl"]*np.pi * perlin_random)\
+            .angle_freq(1 * perlin_random)\
+            .angle_phase_shift(2*np.pi * perlin_random)\
+            .flip(flip_base[idx])\
+        .build()\
+        .solve()\
+        .astype(int)
 
     for i in range(t.shape[1]-1):
-        cv.line(frame, tuple(t[:,i]), tuple(t[:,i+1]), 
-                color_base[idx], 
-                int(np.round(scale * thickness_base[i])))
+        cv.line(
+            frame, 
+            tuple(t[:,i]), 
+            tuple(t[:,i+1]), 
+            color_base[idx], 
+            int(np.round(scale * thickness_base[i]))
+        )
 
 def draw_mustachio(
     frame, frame_idx, anchor, landmarks, lndmrk_idx, must_idx, 
@@ -179,16 +193,23 @@ def draw_mustachio(
 
     y = landmarks[lndmrk_idx][1] - center[1]
     x = landmarks[lndmrk_idx][0] - center[0] + 1e-16
-    perlin_random = perlin[must_idx % perlin.shape[0],
-                           frame_idx % perlin.shape[1]]
+    perlin_random = perlin[
+        must_idx % perlin.shape[0],
+        frame_idx % perlin.shape[1]
+    ]
 
-    m = tentacle_base[0].get_wiggly_tentacle(
-        int(scale * 9), anchor, (x,y),
-        max_angle_between_segments=np.pi/5 * perlin_random,
-        angle_freq=1 * perlin_random,
-        angle_phase_shift=np.pi * perlin_random,
-        flip=flip
-        ).astype(int)
+    m = tentacle_base[0].\
+        set\
+            .scale(int(scale * 9))\
+            .root(anchor)\
+            .arm_angle((x,y))\
+            .max_angle_between_segments(np.pi/5 * perlin_random)\
+            .angle_freq(1 * perlin_random)\
+            .angle_phase_shift(np.pi * perlin_random)\
+            .flip(flip)\
+        .build()\
+        .solve()\
+        .astype(int)
 
     for i in range(m.shape[1]-1):
         cv.line(frame, tuple(m[:,i]), tuple(m[:,i+1]), (100,100,0), 
