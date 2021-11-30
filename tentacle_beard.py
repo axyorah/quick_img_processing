@@ -81,7 +81,12 @@ def dist(pt1, pt2):
     return np.sqrt((pt1[0]-pt2[0])**2 + (pt1[1]-pt2[1])**2)
     
 def get_perlin():
-    pf = PerlinFlow(ver_grid=5, hor_grid=6, points_at_last_octave=6)
+    pf = PerlinFlow()\
+        .set\
+            .ver_grid(5)\
+            .hor_grid(6)\
+            .points_at_last_octave(6)\
+        .build()
     perlin = pf.get_perlin()
     perlin = (perlin - perlin.min()) / (perlin.max() - perlin.min())
     return perlin
