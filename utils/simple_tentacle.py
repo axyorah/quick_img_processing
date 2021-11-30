@@ -91,7 +91,7 @@ class SimpleTentacle:
         self._root = [0,0]
         self._arm_angle = 0
         self._max_angle_between_segments = np.pi/3
-        self._anlge_freq = 1
+        self._angle_freq = 1
         self._angle_phase_shift = 0
         self._flip = False
         
