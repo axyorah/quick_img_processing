@@ -212,7 +212,7 @@ def main():
                 iframe % perlin.shape[1]
             ]
             
-            tentacle = tentacles[it]\
+            coords = tentacles[it]\
                 .set\
                     .max_angle_between_segments( np.pi/3*perlin_random )\
                     .angle_freq( 1* perlin_random )\
@@ -220,12 +220,12 @@ def main():
                 .build()\
                 .solve()
                 
-            plt.plot(tentacle[0,:], tentacle[1,:], 'o-', c=(0,0,0))
+            plt.plot(coords[0,:], coords[1,:], 'o-', c=(0,0,0))
             
         plt.xlim([-7,7])
         plt.ylim([-7,7])
         plt.pause(0.001)
-        
+
 
 if __name__ == "__main__":
     main()
