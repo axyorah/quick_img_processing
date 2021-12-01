@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from typing import List, Tuple, Dict, Optional, Union
 import numpy as np
+import copy
 
 def rotate_notrig(vec: np.ndarray, direction: tuple) -> np.ndarray:
     """rotate (2,1) vector or (2,N) mtx (N vectors) 
@@ -98,6 +99,9 @@ class SimpleTentacle:
     @property
     def set(self) -> 'SimpleTentacleBuilder':
         return SimpleTentacleBuilder(self)
+
+    def copy(self) -> 'SimpleTentacle':
+        return copy.deepcopy(self)
     
     def _get_angles_between_segments(self) -> np.ndarray:
         # tanh modifier is a fugly fix to ensure that
