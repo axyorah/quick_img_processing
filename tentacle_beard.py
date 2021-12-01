@@ -82,7 +82,6 @@ class ShapeConverter:
     def to_array(self):
         return np.array(self.to_list(), dtype=self.dtype)
 
-
 class GeoHelper:
     @classmethod
     def midpoint(cls, pt1, pt2, dtype=int): 
@@ -98,7 +97,6 @@ class GeoHelper:
     @classmethod
     def dist(cls, pt1, pt2):
         return np.sqrt((pt1[0]-pt2[0])**2 + (pt1[1]-pt2[1])**2)
-
 
 class BeardTentacleBuilder(SimpleTentacleBuilder):
     def __init__(self, tentacle: 'BeardTentacle'):
@@ -223,14 +221,21 @@ def draw_brows(frame, landmarks, lndmrk_idx_start, lndmrk_idx_end, scale):
 
 
 def main():
-    # start video stream
-    vc = cv.VideoCapture(0)
-    time.sleep(2)
+    # --- setup ---
+    # get args
+    args = get_args()
+
+    # initiate face detector and facial landmark predictor
+    detector = dlib.get_frontal_face_detector()
+    predictor = dlib.shape_predictor(args["shapepredictor"])
+
+    # get perlin mtx for smooth randomness
+    perlin = get_perlin()
 
     # initialize tentacles
     tentacles = initialize(perlin)
 
-    # setup painters
+    # initialize painters
     tpainter = TentaclePainter()\
         .set\
             .perlin(perlin)\
@@ -243,6 +248,10 @@ def main():
             .squiggle_coeff(1 / 8)\
             .color((100,100,0))\
         .build()
+
+    # --- start video stream ---
+    vc = cv.VideoCapture(0)
+    time.sleep(2)
 
     while True:
         _, frame = vc.read()
@@ -258,7 +267,7 @@ def main():
         for face in faces:
             # get 68 facial landmarks for current face
             landmarks_raw = predictor(gray, face)
-            landmarks     = ShapeConverter(landmarks_raw).to_array()
+            landmarks = ShapeConverter(landmarks_raw).to_array()
         
             # get central beard landmark (highest nose point)
             #(all beard tentacles are poining away from it)
@@ -311,14 +320,5 @@ def main():
     cv.destroyAllWindows()
 
 
-if __name__ == "__main__":    
-    args = get_args()
-
-    # initiate face detector and facial landmark predictor
-    detector = dlib.get_frontal_face_detector()
-    predictor = dlib.shape_predictor(args["shapepredictor"])
-
-    # get perlin mtx for smooth randomness
-    perlin = get_perlin()
-
+if __name__ == "__main__":
     main()
