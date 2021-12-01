@@ -2,6 +2,7 @@
 from typing import List, Tuple, Dict, Optional, Union
 import numpy as np
 import copy
+import cv2 as cv
 
 def rotate_notrig(vec: np.ndarray, direction: tuple) -> np.ndarray:
     """rotate (2,1) vector or (2,N) mtx (N vectors) 
@@ -84,6 +85,24 @@ class SimpleTentacleBuilder:
     
 
 class SimpleTentacle:
+    """
+    use:
+    ```
+    t = SimpleTentacle()\
+        .set\
+            .num_joints(num_joints)\
+            .segment_decay(segment_decay)\
+            .scale(scale)\
+            .root(root)\
+            .arm_angle(arm_angle)\
+            .max_angle_between_segments(max_angle)\
+            .angle_freq(angle_freq)\
+            .angle_phase_shift(angle_phase_shift)\
+        .build()
+
+    coordinates = t.solve()
+    ```
+    """
     def __init__(self):        
         self.segments = None
         self._num_joints = 9
@@ -159,7 +178,7 @@ class SimpleTentacle:
         # rotate the entire tentacle by `arm_angle`
         #(`arm_angle` = 0: horizontal pointing left->right)
         # and make sure that it's `scale`d starts at `root`
-        if isinstance(self._arm_angle, tuple):
+        if isinstance(self._arm_angle, tuple) or isinstance(self._arm_angle, list):
             joints = self._scale * rotate_notrig(
                 joints, 
                 self._arm_angle
@@ -171,6 +190,109 @@ class SimpleTentacle:
             ) + np.array(self._root).reshape(2,1)
 
         return joints
+
+
+class TentaclePainterBuilder:
+    def __init__(self, painter: 'TentaclePainter'):
+        self.painter = painter
+
+    def tentacle(self, _tentacle: 'SimpleTentacle') -> 'TentaclePainterBuilder':
+        self.painter._tentacle = _tentacle
+        return self
+
+    def perlin(self, _perlin: np.ndarray) -> 'TentaclePainterBuilder':
+        self.painter._perlin = _perlin
+        return self
+
+    def anchor(self, _anchor: Union[List[int],Tuple[int,int]]) -> 'TentaclePainterBuilder':
+        self.painter._anchor = _anchor
+        return self
+
+    def direction(self, _direction: Union[List[int],Tuple[int,int]]) -> 'TentaclePainterBuilder':
+        self.painter._direction = _direction
+        return self
+
+    def squiggle_coeff(self, _squiggle_coeff: float) -> 'TentaclePainterBuilder':
+        self.painter._squiggle_coeff = _squiggle_coeff
+        return self
+    
+    def scale(self, _scale: Union[int, float]) -> 'TentaclePainterBuilder':
+        self.painter._scale = _scale
+        return self
+
+    def color(self, _color: Tuple[int,int,int]) -> 'TentaclePainterBuilder':
+        self.painter._color = _color
+        return self
+
+    def build(self) -> 'TentaclePainter':
+        return self.painter
+
+class TentaclePainter():
+    """
+    use:
+    ```
+    painter = TentaclePainter()\
+        .set\
+            .tentacle(tentacle)\ # SimpleTentacle instance
+            .perlin(perlin)\ # perlin matrix [np.ndarray]
+            .anchor(anchor)\ # (x,y) coordinates of anchor (root) point
+            .direction(direction)\ # (x,y) coordinates of direction vec
+            .squiggle_coeff(scoeff)\ # num between 0 and 1, determines "squiggliness"
+            .scale(scale)\ # scale coeff [int or float]
+            .color(color)\ # (b,g,r) 
+        .build()
+
+    painter.paint(frame) # pass image array (height, width, num_channels)
+    painter.increment_counter() # needed to choose `next` element in perlin mtx
+    ```
+    """
+    def __init__(self):
+        self._tentacle = None
+        self._perlin = None
+        self._anchor = None
+        self._direction = None
+        self._squiggle_coeff = None
+        self._scale = None
+        self._color = None
+        self.counter = 0
+
+    @property
+    def set(self) -> 'TentaclePainterBuilder':
+        return TentaclePainterBuilder(self)
+    
+    def increment_counter(self) -> int:
+        self.counter += 1
+        return self.counter
+
+    def paint(self, frame: np.array) -> None:
+        perlin_random = self._perlin[
+            self._tentacle._perlin_idx, 
+            self.counter % self._perlin.shape[1]
+        ]
+        scale_ref = self._tentacle._scale # cache scale!
+        self._tentacle\
+            .set\
+                .scale(int(np.round(self._scale * self._tentacle._scale)))\
+                .root(self._anchor)\
+                .arm_angle(self._direction)\
+                .max_angle_between_segments(self._squiggle_coeff * np.pi * perlin_random)\
+                .angle_freq(1 * perlin_random)\
+                .angle_phase_shift(2 * np.pi * perlin_random)\
+            .build()
+            
+        coords = self._tentacle.solve().astype(int)
+    
+        for i in range(coords.shape[1]-1):
+            cv.line(
+                frame, 
+                tuple(coords[:,i]), 
+                tuple(coords[:,i+1]), 
+                self._color or self._tentacle._color, 
+                int(np.round(self._scale * self._tentacle._thickness[i]))
+            )
+
+        # reset scale!!!
+        self._tentacle.set.scale(scale_ref)
 
 
 def main():

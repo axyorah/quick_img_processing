@@ -20,8 +20,12 @@ import dlib
 import argparse
 import time
 
-from utils.simple_tentacle import SimpleTentacle, SimpleTentacleBuilder
 from utils.perlin_flow import PerlinFlow
+from utils.simple_tentacle import (
+    SimpleTentacle, 
+    SimpleTentacleBuilder, 
+    TentaclePainter
+)
 
 NUM_BEARD_TENTCLS = 13 # hardcoded as it corresponds to 13/15 facial anchor points
 FACEDIM_REF = 1/5      # default face width relative to frame width (used to scale the breard)
@@ -133,6 +137,7 @@ class BeardTentacle(SimpleTentacle):
     def set(self):
         return BeardTentacleBuilder(self)
 
+
 def get_perlin():
     pf = PerlinFlow()\
         .set\
@@ -182,7 +187,6 @@ def initialize(perlin, max_seg=23, min_seg=10):
         for i in range(NUM_BEARD_TENTCLS)
     ]
 
-
 def get_face_scaling_factor(landmarks):
     """
     get relative face width (face width to frame width) wrt reference
@@ -194,85 +198,18 @@ def get_face_scaling_factor(landmarks):
     face_scale = facedim / FACEDIM_REF
     return face_scale
 
-def draw_tentacle(
-        frame, frame_idx, 
-        tentacle, landmark, 
-        center, scale
-    ):    
-    # get direction of arm_angle:            
-    #(direction from highest nose point and anchor of a beard tentacle) 
-    x = landmark[0] - center[0]
-    y = landmark[1] - center[1]
-            
-    # sample perlin mtx for smooth "randomness"
-    perlin_random = perlin[
-        tentacle._perlin_idx, 
-        frame_idx % perlin.shape[1]
-    ]
-
-    scale_ref = tentacle._scale # cache scale!
-    tentacle\
-        .set\
-            .scale(int(np.round(scale * tentacle._scale)))\
-            .root(landmark)\
-            .arm_angle((x,y))\
-            .max_angle_between_segments(args["wigl"]*np.pi * perlin_random)\
-            .angle_freq(1 * perlin_random)\
-            .angle_phase_shift(2*np.pi * perlin_random)\
-        .build()
-
-    coords = tentacle.solve().astype(int)
-    
-    for i in range(coords.shape[1]-1):
-        cv.line(
-            frame, 
-            tuple(coords[:,i]), 
-            tuple(coords[:,i+1]), 
-            tentacle._color, 
-            int(np.round(scale * tentacle._thickness[i]))
-        )
-
-    # reset scale!!!
-    tentacle.set.scale(scale_ref)
-
-def draw_mustachio(
-        frame, frame_idx, 
-        tentacle, anchor, 
-        center, scale
-    ):
-
+def draw_single_tentacle(frame, painter, tentacle, anchor, center, scale):
+    x = anchor[0] - center[0]
     y = anchor[1] - center[1]
-    x = anchor[0] - center[0] + 1e-16
 
-    perlin_random = perlin[
-        tentacle._perlin_idx, 
-        frame_idx % perlin.shape[1]
-    ]
-
-    scale_ref = tentacle._scale # cache init scale!
-    tentacle\
+    painter\
         .set\
-            .scale(int(scale * 9))\
-            .root(anchor)\
-            .arm_angle((x,y))\
-            .max_angle_between_segments(np.pi/5 * perlin_random)\
-            .angle_freq(1 * perlin_random)\
-            .angle_phase_shift(np.pi * perlin_random)\
-        .build()
-
-    coords = tentacle.solve().astype(int)
-
-    for i in range(coords.shape[1]-1):
-        cv.line(
-            frame, 
-            tuple(coords[:,i]), 
-            tuple(coords[:,i+1]), 
-            (100,100,0), 
-            int(np.round(scale * 5))
-        )
-    # reset scale!!!
-    tentacle.set.scale(scale_ref)
-        
+            .tentacle(tentacle)\
+            .anchor(anchor)\
+            .direction((x, y))\
+            .scale(scale)\
+        .build()\
+        .paint(frame)
 
 def draw_brows(frame, landmarks, lndmrk_idx_start, lndmrk_idx_end, scale):
     for i in range(lndmrk_idx_start, lndmrk_idx_end+1):
@@ -281,8 +218,9 @@ def draw_brows(frame, landmarks, lndmrk_idx_start, lndmrk_idx_end, scale):
             tuple(landmarks[i]), 
             tuple(landmarks[i+1]), 
             (100,100,0), 
-            int(np.round(scale * 7))
+            int(np.round(scale * 7))        
         )
+
 
 def main():
     # start video stream
@@ -292,7 +230,20 @@ def main():
     # initialize tentacles
     tentacles = initialize(perlin)
 
-    frame_idx = 0 # will be used to sample perlin mtx
+    # setup painters
+    tpainter = TentaclePainter()\
+        .set\
+            .perlin(perlin)\
+            .squiggle_coeff(args["wigl"])\
+        .build()
+
+    mpainter = TentaclePainter()\
+        .set\
+            .perlin(perlin)\
+            .squiggle_coeff(1 / 8)\
+            .color((100,100,0))\
+        .build()
+
     while True:
         _, frame = vc.read()
         h,w,_ = frame.shape
@@ -315,41 +266,42 @@ def main():
 
             # get central mustache landmark
             #(mustache 'branches' are pointing away from it)
-            must_center = GeoHelper.midpoint(landmarks[33], landmarks[51])
+            #must_center = GeoHelper.midpoint(landmarks[33], landmarks[51])
+            must_center = landmarks[33]
         
             # estimate face dimension relative to the frame
             face_scale = get_face_scaling_factor(landmarks)
         
             # use landmarks 3-16 to draw tentacle beard
             for i in range(NUM_BEARD_TENTCLS):
-                draw_tentacle(
-                    frame, frame_idx, 
-                    tentacles[i], landmarks[i + 2], 
-                    beard_center, face_scale
+                draw_single_tentacle(
+                    frame, tpainter, tentacles[i], 
+                    landmarks[i + 2], beard_center, face_scale
                 )
             
             # use landmarks 33-35, 51-53 to draw mustache
             # left mustachio
             left_anchor = GeoHelper.midpoint(landmarks[32], landmarks[50])
-            draw_mustachio(
-                frame, frame_idx, 
-                tentacles[0], left_anchor, 
-                must_center, face_scale
+            draw_single_tentacle(
+                frame, mpainter, tentacles[0], 
+                left_anchor, must_center, face_scale * 0.8
             )
             
             # right mustachio
             right_anchor = GeoHelper.midpoint(landmarks[34], landmarks[52])
-            draw_mustachio(
-                frame, frame_idx, 
-                tentacles[-1], right_anchor,  
-                must_center, face_scale
+            draw_single_tentacle(
+                frame, mpainter, tentacles[-1], 
+                right_anchor, must_center, face_scale * 0.8
             )
             
             # draw brows
             draw_brows(frame, landmarks, 17, 20, face_scale)
             draw_brows(frame, landmarks, 22, 25, face_scale)
         
-        frame_idx += 1
+        # increment painter counter (needed to sample perlin mtx)       
+        tpainter.increment_counter()
+        mpainter.increment_counter()
+
         cv.imshow("press 'q' to quit", frame)
         key = cv.waitKey(1) & 0xFF
         if key == ord("q"):
