@@ -5,7 +5,7 @@ import torch
 import cv2 as cv
 import argparse
 import time
-from utils.hand_utils import mk_buttons, add_buttons, blur_box
+#from utils.hand_utils import mk_buttons, add_buttons, blur_box
 from utils.yolo_utils_by_ultralytics.yolo import Model
 
 FACE_FILTER_PROTO = "./dnn/facial/face_deploy.prototext"
@@ -64,17 +64,16 @@ def get_hand_masks(
 ):
     h,w = frame.shape[:2]
     handmask = np.zeros(frame.shape)
-    for x1,y1,x2,y2,prob,clss in detections:
-        if prob < 0.5:
+    for x1, y1, x2, y2, prob, clss in detections:
+        if prob < threshold:
             continue
         # get box coordinates
-        x1,x2 = map(lambda x: int(x * w / IMGSZ), [x1, x2])        
-        y1,y2 = map(lambda y: int(y * h / IMGSZ), [y1, y2])
+        x1, x2 = map(lambda x: int(x * w / IMGSZ), [x1, x2])        
+        y1, y2 = map(lambda y: int(y * h / IMGSZ), [y1, y2])
         clss = int(clss)
 
         # get box coordinates
-        #y1,x1,y2,x2 = (box*np.array([h,w,h,w])).astype(int)
-        handmask[y1:y2,x1:x2,:] = 255
+        handmask[y1:y2, x1:x2, :] = 255
 
         # show additional info if requested
         if show_bbox:
@@ -85,20 +84,16 @@ def get_hand_masks(
 
     return handmask
 
-def update_params(buttons, handmask, params, overlap_threshold=0.75):
-    width = params["width"]
-    blur = params["blur"]
+def blur_box(frame, pt1, pt2, k, sigma, weight=0.7):
+    xmin,ymin = pt1
+    xmax,ymax = pt2
 
-    for name in buttons.keys():
-        overlap = cv.bitwise_and(handmask, handmask, mask=buttons[name].mask)
+    blur     = frame.copy()
+    blur     = cv.GaussianBlur(blur, (k,k), sigma)
 
-        if np.sum(overlap) / np.sum(buttons[name].mask) > overlap_threshold:
-            width, blur = buttons[name].action([width, blur])  
-    
-    params["width"] = np.clip(width, 200, 1000)
-    params["blur"]  = np.clip(blur, 0, 20)
+    frame[ymin:ymax,xmin:xmax,:] = blur[ymin:ymax,xmin:xmax,:]
 
-    return params
+    return frame
 
 def detect_faces(frame):
     blob = cv.dnn.blobFromImage(
@@ -116,13 +111,20 @@ def detect_faces(frame):
         faces.append([x1, y1, x2-x1, y2-y1])
     return faces
 
-def blur_faces(frame, faces, params):
-    blur = params["blur"]
+def blur_faces(frame, blur):
+    faces = detect_faces(frame)    
     k     = 1 + 2*blur
     sigma = 1 +   blur
     
     for (x,y,w,h) in faces:
         blur_box(frame, (x,y), (x+w,y+h), k, sigma)
+        
+    return frame
+        
+def resize_frame(frame, width):
+    width = int(width)
+    height = int(FrameManager.get_aspect_ratio(frame) * width)
+    return cv.resize(frame, (width, height))
 
     
 class Event(list):
@@ -135,41 +137,40 @@ class Observable:
         self.change = Event()
 
 class Param:
-    def __init__(self, name, val, min_val, max_val, btn, effect_fun):
+    def __init__(
+        self, 
+        name, 
+        val, 
+        min_val, 
+        max_val, 
+        effect_fun
+    ):
         self.name = name
         self.val = val
         self.min_val = min_val
         self.max_val = max_val
-        self.btn = btn
-        self.btn.change.append(self.update)
         self.effect_fun = effect_fun
 
-    def update(self, param, amount_change):
+    def update(self, frame, param, amount_change):
         if param == self:
             self.val += amount_change
-            self.val = max(self.min_val, min(self.max_val, self.val), self.val)
-            self.effect_fun(self.val)
-
-class Params:
-    def __init__(self):
-        self.params = dict()
-
-    def add_param(self, param):
-        self.params[param.name] = param
-
+            self.val = np.clip(self.val, self.min_val, self.max_val)
+            self.effect_fun(frame, self.val)
 
 class Button(Observable):
-    def __init__(self, name, param, path, amount_change):
+    def __init__(self, name, path, param, amount_change, persist=False):
         super().__init__()
         self.name = name
-        self.param = param
         self.path = path
+        self.param = param
         self.amount_change = amount_change
+        self.persist = persist
         self.btn_ref = None
         self.mask_ref = None
         self.btn = None
         self.mask = None
         self.load()
+        self.change.append(self.param.update)
 
     def load(self):
         comb = cv.imread(self.path, cv.IMREAD_UNCHANGED)
@@ -186,63 +187,18 @@ class Button(Observable):
             self.btn = cv.resize(self.btn_ref, (w,h))
             self.mask = cv.resize(self.mask_ref, (w,h))
 
-        fg = np.zeros((h,w,c), dtype=np.uint8)
+        fg = cv.bitwise_and(self.btn, self.btn, mask=self.mask)
         bg = cv.bitwise_and(frame, frame, mask=cv.bitwise_not(self.mask))
         cv.add(bg, fg, dst=frame)
 
-
-    def is_overlapped(self, handmask, threshold=0.5):
-        overlap = cv.bitwise_and(handmask, handmask, self.mask)
-        if overlap > threshold:
-            self.change(self.param, self.amount_change)
-
-class Buttons:
-    def __init__(self):
-        self.buttons = []
-
-    def add_button(self, btn):
-        self.buttons.append(btn)
-
-
-# class EffectObserver:
-#     def __init__(self, pmanager: 'ParamManager'):
-#         self.pmanager = pmanager
-
-#     def blur_faces(self, frame, faces):
-#         blur = self.pmanager.blur
-#         k     = 1 + 2*blur
-#         sigma = 1 +   blur
-    
-#         for (x,y,w,h) in faces:
-#             blur_box(frame, (x,y), (x+w,y+h), k, sigma)
-
-
-# class ParamManager(PropertyObservable):
-#     def __init__(self, width, blur):
-#         super().__init__()
-#         self._width = width
-#         self._blur = blur
-
-#     @property
-#     def width(self):
-#         return self._width
-
-#     @width.setter
-#     def width(self, val):
-#         if self.width != val:
-#             self.property_change('width', val)
-#             self._width = val
-
-#     @property
-#     def blur(self):
-#         return self._blur
-
-#     @blur.setter
-#     def blur(self, val):
-#         if self.blur != val:
-#             self.property_change('blur', val)
-#             self._blur = val
-
+    def resolve_overlap(self, frame, handmask, threshold=0.75):
+        overlap = cv.bitwise_and(handmask, handmask, mask=self.mask)
+        print(self.name, np.sum(overlap) / np.sum(self.mask))
+        if np.sum(overlap) / np.sum(self.mask) > threshold:
+            self.change(frame, self.param, self.amount_change)
+        elif self.persist:
+            # no change, but persist the effect
+            self.change(frame, self.param, 0)
 
 class FrameManager:
     @classmethod
@@ -279,12 +235,16 @@ def main():
 
     # initiate parameters controled via `buttons`
     params = {
-        "width": 640,
-        "blur": 0
+        "width": Param("width", 640, 100, 1000, resize_frame),
+        "blur": Param("blur", 0, 0, 50, blur_faces)
     }
 
-    # get some ref values
-    h_pre,w_pre = 0,0
+    buttons = [
+        Button("winincrease", "imgs/buttons/win_plus.png", params["width"], 1),
+        Button("windecrease", "imgs/buttons/win_minus.png", params["width"], -1),
+        Button("more_blur", "imgs/buttons/blur_plus.png", params["blur"], 1, persist=True),
+        Button("less_blur", "imgs/buttons/blur_minus.png", params["blur"], -1, persist=True)
+    ]
 
     while True:
         # read video frame
@@ -293,7 +253,7 @@ def main():
     
         # resize and flip the frame + fix channel order (cv default: BGR)
         frame = FrameManager.adjust(
-            frame, (params["width"], int(params["width"] * aspect_ratio))
+            frame, (params["width"].val, int(params["width"].val * aspect_ratio))
         )
 
         # convert to correct format for tf 
@@ -303,29 +263,25 @@ def main():
     
         # get hand detections for current frame
         #(will always make 100 detections sorted by object probability score)
-        #hand_detections = detect_hands(input_tensor)
         hand_detections = hand_detector(input_tensor)[0]
 
         # get hand masks
         handmask = get_hand_masks(
-            hand_detections, frame, threshold=0.7,
+            hand_detections, 
+            frame, 
+            threshold=0.7,
             show_bbox=int(args["show_hand_bbox"]),
-            show_mask=int(args["show_hand_mask"]))
+            show_mask=int(args["show_hand_mask"])
+        )
 
-        # update and draw buttons
-        add_buttons(frame, buttons)
-
-        # check for button/handmask overlaps and update params if needed      
-        params = update_params(buttons, handmask, params)
-        
-        # get face bbox and update face blur        
-        faces = detect_faces(frame)
-
-        blur_faces(frame, faces, params)
+        # add buttons to frame and resolve possible overlaps
+        for btn in buttons:
+            btn.add(frame)
+            btn.resolve_overlap(frame, handmask)
 
         # display final frame
         cv.imshow("press 'q' to quit",  frame[:,:,::-1])
-        h_pre,w_pre = frame.shape[:2]
+        
         stopkey = cv.waitKey(1)
         if stopkey == ord("q"):
             break
@@ -338,9 +294,6 @@ if __name__ == "__main__":
 
     # adjust float precision: if no cuda - use float32
     half = False if DEVICE.type == 'cpu' else HALF
-
-    # load buttons and masks
-    buttons = mk_buttons()
 
     # get out-of-the-box face filter from opencv
     face_detector = cv.dnn.readNetFromCaffe(
