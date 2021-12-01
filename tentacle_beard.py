@@ -116,48 +116,9 @@ def get_perlin():
     perlin = pf.get_perlin()
     return (perlin - perlin.min()) / (perlin.max() - perlin.min())
 
-def init(perlin, max_seg=23, min_seg=10):
-    """
-    initialize:
-        bread tentacles (each composed of `min_seg` to `max_seg` segments)
-        scale factors for each tentacle (central one should be thicker than lateral)
-        scale factor (thickness) for each tentacle segment    
-        indices for each tentacle corresponding to a row in perlin mtx
-        color corresponding to each tentacle   
-        flip array (all the left-side tentacles should be flipped)
-    """
-    # base values for some characteristic features
-    joint_base  = np.random.randint(min_seg,max_seg, NUM_BEARD_TENTCLS)
-    tentacle_base  = [
-        SimpleTentacle().set.num_joints(joint_base[i]).build()
-        for i in range(NUM_BEARD_TENTCLS)
-    ]
-    scale_base = [
-        13 + 13*np.sin(angle) 
-        for angle in np.linspace(0,np.pi,NUM_BEARD_TENTCLS)
-    ]
-    flip_base = [
-        True if i < NUM_BEARD_TENTCLS//2 else False
-        for i in range(NUM_BEARD_TENTCLS)
-    ]
-    perlin_base  = np.random.choice(range(perlin.shape[0]), NUM_BEARD_TENTCLS)
-    color_base  = [
-        (np.random.randint(100,200), np.random.randint(100,230), 0)
-        for _ in range(NUM_BEARD_TENTCLS)
-    ]
-    thickness_base = [8 * 0.95**i for i in range(max_seg)]
-
-    return {
-        "tentacle_base": tentacle_base,
-        "scale_base": scale_base,
-        "flip_base": flip_base,
-        "perlin_base": perlin_base,
-        "color_base": color_base,
-        "thickness_base": thickness_base
-    }
 
 class BeardTentacleBuilder(SimpleTentacleBuilder):
-    def __init__(self, tentacle):
+    def __init__(self, tentacle: 'BeardTentacle'):
         super().__init__(tentacle)
             
     def perlin_idx(self, _perlin_idx):
@@ -173,19 +134,19 @@ class BeardTentacleBuilder(SimpleTentacleBuilder):
         return self
 
     def num_joints(self, _num_joints):
-        self._num_joints = min(
+        self.tentacle._num_joints = min(
             _num_joints, 
             self.tentacle.MAX_NUM_SEGMENTS+1
         )
         return self
 
 class BeardTentacle(SimpleTentacle):
-    MAX_NUM_SEGMENTS = 20
+    MAX_NUM_SEGMENTS = 23
     def __init__(self):
         super().__init__()
         self._perlin_idx = 0
         self._color = (255,0,0)
-        self._segment_thickness = [
+        self._thickness = [
             8 * 0.95**i for i in range(self.MAX_NUM_SEGMENTS)
         ]
             
@@ -193,8 +154,18 @@ class BeardTentacle(SimpleTentacle):
     def set(self):
         return BeardTentacleBuilder(self)
 
+
 def initialize(perlin, max_seg=23, min_seg=10):
-    joint_base  = np.random.randint(min_seg,max_seg, NUM_BEARD_TENTCLS)    
+    """
+    initialize:
+        bread tentacles (each composed of `min_seg` to `max_seg` segments)
+        scale factors for each tentacle (central one should be thicker than lateral)
+        scale factor (thickness) for each tentacle segment    
+        indices for each tentacle corresponding to a row in perlin mtx
+        color corresponding to each tentacle   
+        flip array (all the left-side tentacles should be flipped)
+    """
+    joint_base  = np.random.randint(min_seg, max_seg, NUM_BEARD_TENTCLS)
     scale_base = [
         13 + 13*np.sin(angle) 
         for angle in np.linspace(0,np.pi,NUM_BEARD_TENTCLS)
@@ -218,13 +189,11 @@ def initialize(perlin, max_seg=23, min_seg=10):
                 .flip(flip_base[i])\
                 .perlin_idx(perlin_base[i])\
                 .color(color_base[i])\
-                .thickness(thickness_base[i])
+                .thickness(thickness_base[:joint_base[i]])
             .build()
         for i in range(NUM_BEARD_TENTCLS)
     ]
-
-
-
+    
 
 def get_face_scaling_factor(landmarks):
     """
@@ -237,14 +206,7 @@ def get_face_scaling_factor(landmarks):
     return face_scale
 
 def draw_tentacle_by_idx(
-    frame, frame_idx, landmarks, lndmrk_idx, center, scale):
-
-    tentacle_base = params["tentacle_base"]
-    color_base = params["color_base"]    
-    thickness_base = params["thickness_base"]
-    scale_base = params["scale_base"]
-    flip_base = params["flip_base"]
-    perlin_base = params["perlin_base"]
+    tentacle, frame, frame_idx, landmarks, lndmrk_idx, center, scale):
 
     # 13 facial landmarks (indices 3 to 15, base-1 indexing) 
     # are used as the anchor points to draw breard tentacle;
@@ -257,34 +219,37 @@ def draw_tentacle_by_idx(
     y = landmarks[lndmrk_idx][1] - center[1]
             
     # sample perlin mtx for smooth "randomness"
-    perlin_random = perlin[perlin_base[idx], frame_idx % perlin.shape[1]]
+    #perlin_random = perlin[perlin_base[idx], frame_idx % perlin.shape[1]]
+    perlin_random = perlin[tentacle._perlin_idx, frame_idx % perlin.shape[1]]
 
-    t = tentacle_base[idx].\
-        set\
-            .scale(int(np.round(scale * scale_base[idx])))\
+    scale_ref = tentacle._scale # cache scale!
+    tentacle\
+        .set\
+            .scale(int(np.round(scale * tentacle._scale)))\
             .root(landmarks[lndmrk_idx])\
             .arm_angle((x,y))\
             .max_angle_between_segments(args["wigl"]*np.pi * perlin_random)\
             .angle_freq(1 * perlin_random)\
             .angle_phase_shift(2*np.pi * perlin_random)\
-            .flip(flip_base[idx])\
-        .build()\
-        .solve()\
-        .astype(int)
+        .build()
 
-    for i in range(t.shape[1]-1):
+    coords = tentacle.solve().astype(int)
+    
+    for i in range(coords.shape[1]-1):
         cv.line(
             frame, 
-            tuple(t[:,i]), 
-            tuple(t[:,i+1]), 
-            color_base[idx], 
-            int(np.round(scale * thickness_base[i]))
+            tuple(coords[:,i]), 
+            tuple(coords[:,i+1]), 
+            tentacle._color, 
+            int(np.round(scale * tentacle._thickness[i]))
         )
 
+    # reset scale!!!
+    tentacle.set.scale(scale_ref)
+
 def draw_mustachio(
-    frame, frame_idx, anchor, landmarks, lndmrk_idx, must_idx, 
+    tentacle, frame, frame_idx, anchor, landmarks, lndmrk_idx, must_idx, 
     center, scale, flip):
-    tentacle_base = params["tentacle_base"]
 
     y = landmarks[lndmrk_idx][1] - center[1]
     x = landmarks[lndmrk_idx][0] - center[0] + 1e-16
@@ -293,8 +258,9 @@ def draw_mustachio(
         frame_idx % perlin.shape[1]
     ]
 
-    m = tentacle_base[0].\
-        set\
+    scale_ref = tentacle._scale # cache init scale!
+    tentacle\
+        .set\
             .scale(int(scale * 9))\
             .root(anchor)\
             .arm_angle((x,y))\
@@ -302,23 +268,39 @@ def draw_mustachio(
             .angle_freq(1 * perlin_random)\
             .angle_phase_shift(np.pi * perlin_random)\
             .flip(flip)\
-        .build()\
-        .solve()\
-        .astype(int)
+        .build()
 
-    for i in range(m.shape[1]-1):
-        cv.line(frame, tuple(m[:,i]), tuple(m[:,i+1]), (100,100,0), 
-                int(np.round(scale * 5)))
+    coords = tentacle.solve().astype(int)
+
+    for i in range(coords.shape[1]-1):
+        cv.line(
+            frame, 
+            tuple(coords[:,i]), 
+            tuple(coords[:,i+1]), 
+            (100,100,0), 
+            int(np.round(scale * 5))
+        )
+    # reset scale!!!
+    tentacle.set.scale(scale_ref)
+        
 
 def draw_brows(frame, landmarks, lndmrk_idx_start, lndmrk_idx_end, scale):
-    for i in range(lndmrk_idx_start,lndmrk_idx_end+1):
-        cv.line(frame, tuple(landmarks[i]), tuple(landmarks[i+1]), 
-               (100,100,0), int(np.round(scale * 7)))
+    for i in range(lndmrk_idx_start, lndmrk_idx_end+1):
+        cv.line(
+            frame, 
+            tuple(landmarks[i]), 
+            tuple(landmarks[i+1]), 
+            (100,100,0), 
+            int(np.round(scale * 7))
+        )
 
 def main():
     # start video stream
     vc = cv.VideoCapture(0)
     time.sleep(2)
+
+    # initialize tentacles
+    tentacles = initialize(perlin)
 
     frame_idx = 0 # will be used to sample perlin mtx
     while True:
@@ -349,9 +331,9 @@ def main():
             face_scale = get_face_scaling_factor(landmarks)
         
             # use landmarks 3-16 to draw tentacle beard
-            for lndmrk_idx in range(2,2+NUM_BEARD_TENTCLS,1):
+            for i,lndmrk_idx in enumerate(range(2,2+NUM_BEARD_TENTCLS)):
                 draw_tentacle_by_idx(
-                    frame, frame_idx, landmarks, lndmrk_idx, 
+                    tentacles[i], frame, frame_idx, landmarks, lndmrk_idx, 
                     beard_center, face_scale)
                 
                
@@ -359,13 +341,13 @@ def main():
             # left mustachio
             left_anchor = midpoint(landmarks[32], landmarks[50])
             draw_mustachio(
-                frame, frame_idx, left_anchor, landmarks, 51, 42, 
+                tentacles[0], frame, frame_idx, left_anchor, landmarks, 51, 42, 
                 must_center, face_scale, True)
             
             # right mustachio
             right_anchor = midpoint(landmarks[34], landmarks[52])
             draw_mustachio(
-                frame, frame_idx, right_anchor, landmarks, 53, 47, 
+                tentacles[0], frame, frame_idx, right_anchor, landmarks, 53, 47, 
                 must_center, face_scale, False)
             
             # draw brows
@@ -391,8 +373,5 @@ if __name__ == "__main__":
 
     # get perlin mtx for smooth randomness
     perlin = get_perlin()
-
-    # initialize tentacles
-    params = init(perlin)
 
     main()
