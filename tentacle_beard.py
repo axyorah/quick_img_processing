@@ -29,10 +29,12 @@ FRAME_WIDTH = 640
 
 def get_args():
     parser = argparse.ArgumentParser()
+
     parser.add_argument(
         "-w", "--wigl", type=float, default=0.25,
         help="degrgee of tentacle 'wiggliness':\n"+\
             "should be a float from 0+ to 0.5")
+
     parser.add_argument(
         "-p", "--shapepredictor", 
         default="./dnn/facial/shape_predictor_68_face_landmarks.dat",
@@ -40,25 +42,17 @@ def get_args():
             "cat be downloaded from\n"+\
             "https://github.com/AKSHAYUBHAT/TensorFace/blob/master/"+\
             "openface/models/dlib/shape_predictor_68_face_landmarks.dat")
+
     args = vars(parser.parse_args())
     args["wigl"] = float(args["wigl"])
 
     return args
 
-
-# useful stuff for face/facial landmarks detection
-def rect2bb(rect):
+class Rect2BBAdapter(list):
     """
     get bounding predicted by dlib
     and convert it (x,y,w,h)
     """
-    x = rect.left()
-    y = rect.top()
-    w = rect.right() - x
-    h = rect.bottom() - y
-    return (x,y,w,h)
-
-class Rect2BBAdapter(list):
     def __init__(self, rect):
         x = rect.left()
         y = rect.top()
@@ -66,18 +60,10 @@ class Rect2BBAdapter(list):
         h = rect.bottom() - y
         self.extend([x,y,w,h])
 
-def shape2np(shape, dtype=int):
-    """
-    coords of 68 facial landmarks -> numpy array
-    """
-    coords = np.zeros((68,2), dtype=dtype)
-    
-    for i in range(68):
-        coords[i] = (shape.part(i).x, shape.part(i).y)
-                
-    return coords
-
 class ShapeConverter:
+    """
+    coords of 68 facial landmarks as list or numpy array
+    """
     NUM_PTS = 68
     def __init__(self, shape, dtype=int):
         self.shape = shape
@@ -85,36 +71,29 @@ class ShapeConverter:
 
     def to_list(self):
         return [
-            (self.shape.part(i).x, self.shape.part(i).y)
-            for i in range(self.NUMPTS)
+            [self.shape.part(i).x, self.shape.part(i).y]
+            for i in range(self.NUM_PTS)
         ]
 
     def to_array(self):
         return np.array(self.to_list(), dtype=self.dtype)
 
 
-def midpoint(pt1, pt2):
-    """
-    get coords of midpoint of pt1 (x1,y1) and pt2 (x2,y2)
-    return the result as (2,) numpy array of ints (pixels!)
-    """
-    return np.array([
-        int(0.5*(pt1[0]+pt2[0])), 
-        int(0.5*(pt1[1]+pt2[1]))
-    ])
-    
-def dist(pt1, pt2):
-    return np.sqrt((pt1[0]-pt2[0])**2 + (pt1[1]-pt2[1])**2)
-    
-def get_perlin():
-    pf = PerlinFlow()\
-        .set\
-            .ver_grid(5)\
-            .hor_grid(6)\
-            .points_at_last_octave(6)\
-        .build()
-    perlin = pf.get_perlin()
-    return (perlin - perlin.min()) / (perlin.max() - perlin.min())
+class GeoHelper:
+    @classmethod
+    def midpoint(cls, pt1, pt2, dtype=int): 
+        """
+        get coords of midpoint of pt1 (x1,y1) and pt2 (x2,y2)
+        return the result as (2,) numpy array of ints (pixels!)
+        """
+        return np.array([
+            0.5*(pt1[0]+pt2[0]),
+            0.5*(pt1[1]+pt2[1])
+        ], dtype=dtype)
+
+    @classmethod
+    def dist(cls, pt1, pt2):
+        return np.sqrt((pt1[0]-pt2[0])**2 + (pt1[1]-pt2[1])**2)
 
 
 class BeardTentacleBuilder(SimpleTentacleBuilder):
@@ -154,6 +133,15 @@ class BeardTentacle(SimpleTentacle):
     def set(self):
         return BeardTentacleBuilder(self)
 
+def get_perlin():
+    pf = PerlinFlow()\
+        .set\
+            .ver_grid(5)\
+            .hor_grid(6)\
+            .points_at_last_octave(6)\
+        .build()
+    perlin = pf.get_perlin()
+    return (perlin - perlin.min()) / (perlin.max() - perlin.min())
 
 def initialize(perlin, max_seg=23, min_seg=10):
     """
@@ -200,8 +188,9 @@ def get_face_scaling_factor(landmarks):
     get relative face width (face width to frame width) wrt reference
     """
     facedim = max(
-        dist(landmarks[3], landmarks[13]),
-        dist(landmarks[8], landmarks[27])) / FRAME_WIDTH
+        GeoHelper.dist(landmarks[3], landmarks[13]),
+        GeoHelper.dist(landmarks[8], landmarks[27])
+    ) / FRAME_WIDTH
     face_scale = facedim / FACEDIM_REF
     return face_scale
 
@@ -318,7 +307,7 @@ def main():
         for face in faces:
             # get 68 facial landmarks for current face
             landmarks_raw = predictor(gray, face)
-            landmarks     = shape2np(landmarks_raw)
+            landmarks     = ShapeConverter(landmarks_raw).to_array()
         
             # get central beard landmark (highest nose point)
             #(all beard tentacles are poining away from it)
@@ -326,23 +315,22 @@ def main():
 
             # get central mustache landmark
             #(mustache 'branches' are pointing away from it)
-            must_center = midpoint(landmarks[33], landmarks[51])
+            must_center = GeoHelper.midpoint(landmarks[33], landmarks[51])
         
             # estimate face dimension relative to the frame
             face_scale = get_face_scaling_factor(landmarks)
         
             # use landmarks 3-16 to draw tentacle beard
-            for i,lndmrk_idx in enumerate(range(2,2+NUM_BEARD_TENTCLS)):
+            for i in range(NUM_BEARD_TENTCLS):
                 draw_tentacle(
                     frame, frame_idx, 
-                    tentacles[i], landmarks[lndmrk_idx], 
+                    tentacles[i], landmarks[i + 2], 
                     beard_center, face_scale
                 )
-                
-               
+            
             # use landmarks 33-35, 51-53 to draw mustache
             # left mustachio
-            left_anchor = midpoint(landmarks[32], landmarks[50])
+            left_anchor = GeoHelper.midpoint(landmarks[32], landmarks[50])
             draw_mustachio(
                 frame, frame_idx, 
                 tentacles[0], left_anchor, 
@@ -350,7 +338,7 @@ def main():
             )
             
             # right mustachio
-            right_anchor = midpoint(landmarks[34], landmarks[52])
+            right_anchor = GeoHelper.midpoint(landmarks[34], landmarks[52])
             draw_mustachio(
                 frame, frame_idx, 
                 tentacles[-1], right_anchor,  
