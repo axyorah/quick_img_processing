@@ -55,8 +55,13 @@ def load_yolo_model(cfg_path, state_dict_path, num_classes, device=torch.device(
     detector.eval()
     return detector
 
-def get_hand_masks(detections, frame, threshold=0.5,
-                   show_bbox=0, show_mask=0):
+def get_hand_masks(
+    detections, 
+    frame, 
+    threshold=0.5,
+    show_bbox=0, 
+    show_mask=0
+):
     h,w = frame.shape[:2]
     handmask = np.zeros(frame.shape)
     for x1,y1,x2,y2,prob,clss in detections:
@@ -79,28 +84,6 @@ def get_hand_masks(detections, frame, threshold=0.5,
         cv.imshow("handmask", handmask)
 
     return handmask
-
-def adjust_frame(frame, tar_sz):
-    frame = cv.resize(frame, tar_sz)
-    frame = cv.flip(frame, 1)
-    frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-    return frame
-
-def preprocess_frame(frame, sz, device=None, half=False):
-    if device is None:
-        device = torch.device('cpu')
-    tensor = cv.resize(frame, sz)    
-    tensor = tensor.transpose(2, 0, 1)
-    tensor = torch.from_numpy(tensor)
-    tensor = torch.unsqueeze(tensor, 0)
-    tensor = tensor.half() if half else tensor.float()
-    tensor = tensor / 255.0
-    tensor = tensor.to(device)
-    return tensor
-
-def get_aspect_ratio(frame):
-    h,w = frame.shape[:2]
-    return h/w
 
 def update_params(buttons, handmask, params, overlap_threshold=0.75):
     width = params["width"]
@@ -142,6 +125,38 @@ def blur_faces(frame, faces, params):
         blur_box(frame, (x,y), (x+w,y+h), k, sigma)
 
 
+class ParamManager:
+    def __init__(self, params):
+        self.params = params
+
+class FrameManager:
+    @classmethod
+    def get_aspect_ratio(cls, frame):
+        h,w = frame.shape[:2]
+        return h/w
+
+    @classmethod
+    def adjust(cls, frame, tar_sz):
+        frame = cv.resize(frame, tar_sz)
+        frame = cv.flip(frame, 1)
+        frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+        return frame
+
+    @classmethod
+    def preprocess(cls, frame, sz, device=None, half=False):
+        if device is None:
+            device = torch.device('cpu')
+        tensor = cv.resize(frame, sz)    
+        tensor = tensor.transpose(2, 0, 1)
+        tensor = torch.from_numpy(tensor)
+        tensor = torch.unsqueeze(tensor, 0)
+        tensor = tensor.half() if half else tensor.float()
+        tensor = tensor / 255.0
+        tensor = tensor.to(device)
+        return tensor
+
+
+
 def main():    
     # initiate video stream
     vc = cv.VideoCapture(0)
@@ -159,15 +174,17 @@ def main():
     while True:
         # read video frame
         _, frame = vc.read()
-        aspect_ratio = get_aspect_ratio(frame)
+        aspect_ratio = FrameManager.get_aspect_ratio(frame)
     
         # resize and flip the frame + fix channel order (cv default: BGR)
-        frame = adjust_frame(
-            frame, (params["width"], int(params["width"] * aspect_ratio)))
+        frame = FrameManager.adjust(
+            frame, (params["width"], int(params["width"] * aspect_ratio))
+        )
 
         # convert to correct format for tf 
-        #input_tensor = preprocess_frame(frame)
-        input_tensor = preprocess_frame(frame, (IMGSZ, IMGSZ), device=DEVICE, half=half)
+        input_tensor = FrameManager.preprocess(
+            frame, (IMGSZ, IMGSZ), device=DEVICE, half=half
+        )
     
         # get hand detections for current frame
         #(will always make 100 detections sorted by object probability score)
