@@ -193,7 +193,7 @@ def initialize(perlin, max_seg=23, min_seg=10):
             .build()
         for i in range(NUM_BEARD_TENTCLS)
     ]
-    
+
 
 def get_face_scaling_factor(landmarks):
     """
@@ -205,28 +205,27 @@ def get_face_scaling_factor(landmarks):
     face_scale = facedim / FACEDIM_REF
     return face_scale
 
-def draw_tentacle_by_idx(
-    tentacle, frame, frame_idx, landmarks, lndmrk_idx, center, scale):
-
-    # 13 facial landmarks (indices 3 to 15, base-1 indexing) 
-    # are used as the anchor points to draw breard tentacle;
-    # tentacle indices are simple landmark_idx - 2
-    idx = lndmrk_idx - 2 
-    
+def draw_tentacle(
+        frame, frame_idx, 
+        tentacle, landmark, 
+        center, scale
+    ):    
     # get direction of arm_angle:            
     #(direction from highest nose point and anchor of a beard tentacle) 
-    x = landmarks[lndmrk_idx][0] - center[0]
-    y = landmarks[lndmrk_idx][1] - center[1]
+    x = landmark[0] - center[0]
+    y = landmark[1] - center[1]
             
     # sample perlin mtx for smooth "randomness"
-    #perlin_random = perlin[perlin_base[idx], frame_idx % perlin.shape[1]]
-    perlin_random = perlin[tentacle._perlin_idx, frame_idx % perlin.shape[1]]
+    perlin_random = perlin[
+        tentacle._perlin_idx, 
+        frame_idx % perlin.shape[1]
+    ]
 
     scale_ref = tentacle._scale # cache scale!
     tentacle\
         .set\
             .scale(int(np.round(scale * tentacle._scale)))\
-            .root(landmarks[lndmrk_idx])\
+            .root(landmark)\
             .arm_angle((x,y))\
             .max_angle_between_segments(args["wigl"]*np.pi * perlin_random)\
             .angle_freq(1 * perlin_random)\
@@ -248,13 +247,16 @@ def draw_tentacle_by_idx(
     tentacle.set.scale(scale_ref)
 
 def draw_mustachio(
-    tentacle, frame, frame_idx, anchor, landmarks, lndmrk_idx, must_idx, 
-    center, scale, flip):
+        frame, frame_idx, 
+        tentacle, anchor, 
+        center, scale
+    ):
 
-    y = landmarks[lndmrk_idx][1] - center[1]
-    x = landmarks[lndmrk_idx][0] - center[0] + 1e-16
+    y = anchor[1] - center[1]
+    x = anchor[0] - center[0] + 1e-16
+
     perlin_random = perlin[
-        must_idx % perlin.shape[0],
+        tentacle._perlin_idx, 
         frame_idx % perlin.shape[1]
     ]
 
@@ -267,7 +269,6 @@ def draw_mustachio(
             .max_angle_between_segments(np.pi/5 * perlin_random)\
             .angle_freq(1 * perlin_random)\
             .angle_phase_shift(np.pi * perlin_random)\
-            .flip(flip)\
         .build()
 
     coords = tentacle.solve().astype(int)
@@ -325,30 +326,36 @@ def main():
 
             # get central mustache landmark
             #(mustache 'branches' are pointing away from it)
-            must_center = landmarks[52]
+            must_center = midpoint(landmarks[33], landmarks[51])
         
             # estimate face dimension relative to the frame
             face_scale = get_face_scaling_factor(landmarks)
         
             # use landmarks 3-16 to draw tentacle beard
             for i,lndmrk_idx in enumerate(range(2,2+NUM_BEARD_TENTCLS)):
-                draw_tentacle_by_idx(
-                    tentacles[i], frame, frame_idx, landmarks, lndmrk_idx, 
-                    beard_center, face_scale)
+                draw_tentacle(
+                    frame, frame_idx, 
+                    tentacles[i], landmarks[lndmrk_idx], 
+                    beard_center, face_scale
+                )
                 
                
             # use landmarks 33-35, 51-53 to draw mustache
             # left mustachio
             left_anchor = midpoint(landmarks[32], landmarks[50])
             draw_mustachio(
-                tentacles[0], frame, frame_idx, left_anchor, landmarks, 51, 42, 
-                must_center, face_scale, True)
+                frame, frame_idx, 
+                tentacles[0], left_anchor, 
+                must_center, face_scale
+            )
             
             # right mustachio
             right_anchor = midpoint(landmarks[34], landmarks[52])
             draw_mustachio(
-                tentacles[0], frame, frame_idx, right_anchor, landmarks, 53, 47, 
-                must_center, face_scale, False)
+                frame, frame_idx, 
+                tentacles[-1], right_anchor,  
+                must_center, face_scale
+            )
             
             # draw brows
             draw_brows(frame, landmarks, 17, 20, face_scale)
