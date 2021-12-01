@@ -14,6 +14,7 @@ shape predictor taken from:
     https://github.com/AKSHAYUBHAT/TensorFace/blob/master/openface/models/dlib/shape_predictor_68_face_landmarks.dat
 
 """
+from typing import List, Tuple, Dict, Set, Union, Optional
 import cv2 as cv
 import numpy as np
 import dlib
@@ -31,7 +32,7 @@ NUM_BEARD_TENTCLS = 13 # hardcoded as it corresponds to 13/15 facial anchor poin
 FACEDIM_REF = 1/5      # default face width relative to frame width (used to scale the breard)
 FRAME_WIDTH = 640
 
-def get_args():
+def get_args() -> Dict:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -57,7 +58,7 @@ class Rect2BBAdapter(list):
     get bounding predicted by dlib
     and convert it (x,y,w,h)
     """
-    def __init__(self, rect):
+    def __init__(self, rect: dlib.drectangle):
         x = rect.left()
         y = rect.top()
         w = rect.right() - x
@@ -69,22 +70,27 @@ class ShapeConverter:
     coords of 68 facial landmarks as list or numpy array
     """
     NUM_PTS = 68
-    def __init__(self, shape, dtype=int):
+    def __init__(self, shape: dlib.full_object_detection, dtype=int):
         self.shape = shape
         self.dtype = dtype
 
-    def to_list(self):
+    def to_list(self) -> List[List[float]]:
         return [
             [self.shape.part(i).x, self.shape.part(i).y]
             for i in range(self.NUM_PTS)
         ]
 
-    def to_array(self):
+    def to_array(self) -> np.ndarray:
         return np.array(self.to_list(), dtype=self.dtype)
 
 class GeoHelper:
     @classmethod
-    def midpoint(cls, pt1, pt2, dtype=int): 
+    def midpoint(
+        cls, 
+        pt1: Union[List[int],Tuple[int,int]], 
+        pt2: Union[List[int],Tuple[int,int]], 
+        dtype=int
+    ) -> np.ndarray: 
         """
         get coords of midpoint of pt1 (x1,y1) and pt2 (x2,y2)
         return the result as (2,) numpy array of ints (pixels!)
@@ -95,26 +101,30 @@ class GeoHelper:
         ], dtype=dtype)
 
     @classmethod
-    def dist(cls, pt1, pt2):
+    def dist(
+        cls, 
+        pt1: Union[List[int],Tuple[int,int]], 
+        pt2: Union[List[int],Tuple[int,int]]
+    ):
         return np.sqrt((pt1[0]-pt2[0])**2 + (pt1[1]-pt2[1])**2)
 
 class BeardTentacleBuilder(SimpleTentacleBuilder):
     def __init__(self, tentacle: 'BeardTentacle'):
         super().__init__(tentacle)
             
-    def perlin_idx(self, _perlin_idx):
+    def perlin_idx(self, _perlin_idx: int) -> 'BeardTentacleBuilder':
         self.tentacle._perlin_idx = _perlin_idx
         return self
             
-    def color(self, _color):
+    def color(self, _color: Tuple[int,int,int]) -> 'BeardTentacleBuilder':
         self.tentacle._color = _color
         return self
             
-    def thickness(self, _thickness):
+    def thickness(self, _thickness: Union[int,float]) -> 'BeardTentacleBuilder':
         self.tentacle._thickness = _thickness
         return self
 
-    def num_joints(self, _num_joints):
+    def num_joints(self, _num_joints: int) -> 'BeardTentacleBuilder':
         self.tentacle._num_joints = min(
             _num_joints, 
             self.tentacle.MAX_NUM_SEGMENTS+1
@@ -132,11 +142,11 @@ class BeardTentacle(SimpleTentacle):
         ]
             
     @property
-    def set(self):
+    def set(self) -> 'BeardTentacleBuilder':
         return BeardTentacleBuilder(self)
 
 
-def get_perlin():
+def get_perlin() -> np.ndarray:
     pf = PerlinFlow()\
         .set\
             .ver_grid(5)\
@@ -146,7 +156,11 @@ def get_perlin():
     perlin = pf.get_perlin()
     return (perlin - perlin.min()) / (perlin.max() - perlin.min())
 
-def initialize(perlin, max_seg=23, min_seg=10):
+def initialize(
+    perlin: np.ndarray, 
+    max_seg: int = 23, 
+    min_seg: int = 10
+) -> List[BeardTentacle]:
     """
     initialize:
         bread tentacles (each composed of `min_seg` to `max_seg` segments)
@@ -185,7 +199,7 @@ def initialize(perlin, max_seg=23, min_seg=10):
         for i in range(NUM_BEARD_TENTCLS)
     ]
 
-def get_face_scaling_factor(landmarks):
+def get_face_scaling_factor(landmarks: np.ndarray) -> float:
     """
     get relative face width (face width to frame width) wrt reference
     """
@@ -196,7 +210,14 @@ def get_face_scaling_factor(landmarks):
     face_scale = facedim / FACEDIM_REF
     return face_scale
 
-def draw_single_tentacle(frame, painter, tentacle, anchor, center, scale):
+def draw_single_tentacle(
+    frame: np.ndarray, 
+    painter: TentaclePainter, 
+    tentacle: BeardTentacle, 
+    anchor: Union[List[int],Tuple[int,int]], 
+    center: Union[List[int],Tuple[int,int]], 
+    scale: Union[int,float]
+) -> None:
     x = anchor[0] - center[0]
     y = anchor[1] - center[1]
 
@@ -209,7 +230,13 @@ def draw_single_tentacle(frame, painter, tentacle, anchor, center, scale):
         .build()\
         .paint(frame)
 
-def draw_brows(frame, landmarks, lndmrk_idx_start, lndmrk_idx_end, scale):
+def draw_brows(
+    frame: np.ndarray, 
+    landmarks: np.ndarray, 
+    lndmrk_idx_start: int, 
+    lndmrk_idx_end: int, 
+    scale: Union[int,float]
+) -> None:
     for i in range(lndmrk_idx_start, lndmrk_idx_end+1):
         cv.line(
             frame, 
