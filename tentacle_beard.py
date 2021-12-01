@@ -20,7 +20,7 @@ import dlib
 import argparse
 import time
 
-from utils.simple_tentacle import SimpleTentacle
+from utils.simple_tentacle import SimpleTentacle, SimpleTentacleBuilder
 from utils.perlin_flow import PerlinFlow
 
 NUM_BEARD_TENTCLS = 13 # hardcoded as it corresponds to 13/15 facial anchor points
@@ -58,6 +58,14 @@ def rect2bb(rect):
     h = rect.bottom() - y
     return (x,y,w,h)
 
+class Rect2BBAdapter(list):
+    def __init__(self, rect):
+        x = rect.left()
+        y = rect.top()
+        w = rect.right() - x
+        h = rect.bottom() - y
+        self.extend([x,y,w,h])
+
 def shape2np(shape, dtype=int):
     """
     coords of 68 facial landmarks -> numpy array
@@ -69,13 +77,31 @@ def shape2np(shape, dtype=int):
                 
     return coords
 
+class ShapeConverter:
+    NUM_PTS = 68
+    def __init__(self, shape, dtype=int):
+        self.shape = shape
+        self.dtype = dtype
+
+    def to_list(self):
+        return [
+            (self.shape.part(i).x, self.shape.part(i).y)
+            for i in range(self.NUMPTS)
+        ]
+
+    def to_array(self):
+        return np.array(self.to_list(), dtype=self.dtype)
+
+
 def midpoint(pt1, pt2):
     """
     get coords of midpoint of pt1 (x1,y1) and pt2 (x2,y2)
     return the result as (2,) numpy array of ints (pixels!)
     """
-    return np.array([int(0.5*(pt1[0]+pt2[0])), 
-                     int(0.5*(pt1[1]+pt2[1]))])
+    return np.array([
+        int(0.5*(pt1[0]+pt2[0])), 
+        int(0.5*(pt1[1]+pt2[1]))
+    ])
     
 def dist(pt1, pt2):
     return np.sqrt((pt1[0]-pt2[0])**2 + (pt1[1]-pt2[1])**2)
@@ -88,8 +114,7 @@ def get_perlin():
             .points_at_last_octave(6)\
         .build()
     perlin = pf.get_perlin()
-    perlin = (perlin - perlin.min()) / (perlin.max() - perlin.min())
-    return perlin
+    return (perlin - perlin.min()) / (perlin.max() - perlin.min())
 
 def init(perlin, max_seg=23, min_seg=10):
     """
@@ -130,6 +155,76 @@ def init(perlin, max_seg=23, min_seg=10):
         "color_base": color_base,
         "thickness_base": thickness_base
     }
+
+class BeardTentacleBuilder(SimpleTentacleBuilder):
+    def __init__(self, tentacle):
+        super().__init__(tentacle)
+            
+    def perlin_idx(self, _perlin_idx):
+        self.tentacle._perlin_idx = _perlin_idx
+        return self
+            
+    def color(self, _color):
+        self.tentacle._color = _color
+        return self
+            
+    def thickness(self, _thickness):
+        self.tentacle._thickness = _thickness
+        return self
+
+    def num_joints(self, _num_joints):
+        self._num_joints = min(
+            _num_joints, 
+            self.tentacle.MAX_NUM_SEGMENTS+1
+        )
+        return self
+
+class BeardTentacle(SimpleTentacle):
+    MAX_NUM_SEGMENTS = 20
+    def __init__(self):
+        super().__init__()
+        self._perlin_idx = 0
+        self._color = (255,0,0)
+        self._segment_thickness = [
+            8 * 0.95**i for i in range(self.MAX_NUM_SEGMENTS)
+        ]
+            
+    @property
+    def set(self):
+        return BeardTentacleBuilder(self)
+
+def initialize(perlin, max_seg=23, min_seg=10):
+    joint_base  = np.random.randint(min_seg,max_seg, NUM_BEARD_TENTCLS)    
+    scale_base = [
+        13 + 13*np.sin(angle) 
+        for angle in np.linspace(0,np.pi,NUM_BEARD_TENTCLS)
+    ]
+    flip_base = [
+        True if i < NUM_BEARD_TENTCLS//2 else False
+        for i in range(NUM_BEARD_TENTCLS)
+    ]
+    perlin_base  = np.random.choice(range(perlin.shape[0]), NUM_BEARD_TENTCLS)
+    color_base  = [
+        (np.random.randint(100,200), np.random.randint(100,230), 0)
+        for _ in range(NUM_BEARD_TENTCLS)
+    ]
+    thickness_base = [8 * 0.95**i for i in range(max_seg)]
+
+    return [
+        BeardTentacle()\
+            .set\
+                .num_joints(joint_base[i])\
+                .scale(scale_base[i])\
+                .flip(flip_base[i])\
+                .perlin_idx(perlin_base[i])\
+                .color(color_base[i])\
+                .thickness(thickness_base[i])
+            .build()
+        for i in range(NUM_BEARD_TENTCLS)
+    ]
+
+
+
 
 def get_face_scaling_factor(landmarks):
     """
