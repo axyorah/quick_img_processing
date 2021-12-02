@@ -142,11 +142,13 @@ class YoloHandDetector(Detector):
         sz: Tuple[int,int] = (None, None)
     ) -> List[List[float]]:
 
-        h, w = sz or input_tensor.shape
+        h, w = sz or input_tensor.shape[:2]
         raw_detections = self.detector(input_tensor)[0]
 
         self._detections = []
         self._mask = np.zeros((h, w), dtype=int)
+
+        # raw output contains 100 detections sorted by obj prob score
         for x1, y1, x2, y2, prob, clss in raw_detections:
             if prob < threshold:
                 continue
@@ -156,8 +158,8 @@ class YoloHandDetector(Detector):
             y1, y2 = map(lambda y: int(y * h / self.IMGSZ), [y1, y2])
             clss = int(clss)
 
-            self._detections.append(x1, y1, x2, y2, prob, clss)
-            self._mask[y1:y2, x1:x2, :] = 255
+            self._detections.append([x1, y1, x2, y2, prob, clss])
+            self._mask[y1:y2, x1:x2] = 255
 
         return self._detections
 
@@ -219,72 +221,6 @@ class CvFaceDetector(Detector):
 
         return faces
 
-
-
-    
-
-
-
-
-
-
-def load_yolo_model(
-    cfg_path: str, 
-    state_dict_path: str, 
-    num_classes: int, 
-    device: torch.device = torch.device('cpu'), 
-    half: bool = False
-) -> Model:
-    # restore model from state_dict checkpoint
-    detector = Model(cfg=cfg_path, nc=num_classes)
-    ckpt = torch.load(state_dict_path)
-    detector.load_state_dict(ckpt['model_state_dict'])
-
-    # add non-max suppression
-    detector.nms()
-
-    # adjust precision
-    if half:
-        detector.half()
-    else:
-        detector.float()
-
-    # use cuda is available
-    detector.to(device)
-
-    # switch to inference mode
-    detector.eval()
-    return detector
-
-def get_hand_masks(
-    detections: torch.TensorType, 
-    frame: np.ndarray, 
-    threshold: float = 0.5,
-    show_bbox: bool = False, 
-    show_mask: bool = False
-) -> np.ndarray:
-    h,w = frame.shape[:2]
-    handmask = np.zeros(frame.shape)
-    for x1, y1, x2, y2, prob, clss in detections:
-        if prob < threshold:
-            continue
-        
-        # get box coordinates
-        x1, x2 = map(lambda x: int(x * w / IMGSZ), [x1, x2])
-        y1, y2 = map(lambda y: int(y * h / IMGSZ), [y1, y2])
-        clss = int(clss)
-
-        # get box coordinates
-        handmask[y1:y2, x1:x2, :] = 255
-
-        # show additional info if requested
-        if show_bbox:
-            cv.rectangle(frame, (x1,y1), (x2,y2), (0,0,255), 2)
-
-    if show_mask:
-        cv.imshow("handmask", handmask)
-
-    return handmask
 
 def blur_box(
     frame: np.ndarray, 
@@ -349,35 +285,8 @@ class FrameManager:
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         return frame
 
-    @classmethod
-    def preprocess(
-        cls, 
-        frame: np.ndarray, 
-        sz: Tuple[int,int], 
-        device: torch.device = None, 
-        half: bool = False
-    ) -> torch.TensorType:
-        """
-        preprocesses raw img frame (np.ndarray) for 
-        yolo5 torch detector 
-        """
-        if device is None:
-            device = torch.device('cpu')
-        tensor = cv.resize(frame, sz)
-        tensor = tensor.transpose(2, 0, 1)
-        tensor = torch.from_numpy(tensor)
-        tensor = torch.unsqueeze(tensor, 0)
-        tensor = tensor.half() if half else tensor.float()
-        tensor = tensor / 255.0
-        tensor = tensor.to(device)
-        return tensor
 
-
-def main():    
-    # initiate video stream
-    vc = cv.VideoCapture(0)
-    time.sleep(2)
-
+def main():   
     # initiate parameters controled via `buttons`
     params = {
         "width": Param("width", 640, 200, 1000, resize_frame),
@@ -391,6 +300,9 @@ def main():
         Button("blur_minus", "imgs/buttons/blur_minus.png", params["blur"], -1, persist=True)
     ]
 
+    # initiate video stream
+    vc = cv.VideoCapture(0)
+    time.sleep(2)
     while True:
         # read video frame
         _, frame = vc.read()
@@ -401,30 +313,23 @@ def main():
             frame, (params["width"].val, int(params["width"].val * aspect_ratio))
         )
 
-        # convert to correct format for tf 
-        input_tensor = FrameManager.preprocess(
-            frame, (IMGSZ, IMGSZ), device=DEVICE, half=half
-        )
-    
-        # get hand detections for current frame
-        #(will always make 100 detections sorted by object probability score)
-        hand_detections = hand_detector(input_tensor)[0]
-
-        # get hand masks
-        handmask = get_hand_masks(
-            hand_detections, 
-            frame, 
+        # find hand bboxes and masks
+        input_tensor = hand_detector.preprocess(frame)
+        hand_detector.detect(
+            input_tensor, 
             threshold=args["threshold"],
-            show_bbox=args["show_hand_bbox"],
-            show_mask=args["show_hand_mask"]
+            sz=frame.shape[:2]
         )
 
         # add buttons to frame and resolve possible overlaps
         for btn in buttons:
             btn.add(frame)
-            btn.resolve_overlap(frame, handmask)
+            btn.resolve_overlap(frame, hand_detector.mask)
 
         # display final frame
+        if args["show_hand_bbox"]:
+            hand_detector.show(frame)
+
         cv.imshow("press 'q' to quit",  frame[:,:,::-1])
         
         stopkey = cv.waitKey(1)
@@ -440,14 +345,17 @@ if __name__ == "__main__":
     # adjust float precision: if no cuda - use float32
     half = False if DEVICE.type == 'cpu' else HALF
     
-    face_detector = CvFaceDetector(FACE_FILTER_PROTO, FACE_FILTER_RCNN, 1)
-
-    # load the inference model for hand detector
-    hand_detector = load_yolo_model(
+    face_detector = CvFaceDetector(
+        FACE_FILTER_PROTO, 
+        FACE_FILTER_RCNN, 
+        num_classes=1
+    )
+    hand_detector = YoloHandDetector(
         HAND_DETECTOR_YAML,
         HAND_DETECTOR_DICT,
-        num_classes=1, device=DEVICE, half=half
+        num_classes=1, 
+        device=DEVICE, 
+        half=half
     )
-    classes = ["hand"]
 
     main()
