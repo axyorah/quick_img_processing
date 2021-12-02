@@ -194,10 +194,10 @@ def main():
     }
 
     buttons = [
-        Button("winincrease", "imgs/buttons/win_plus.png", params["width"], 1),
-        Button("windecrease", "imgs/buttons/win_minus.png", params["width"], -1),
-        Button("more_blur", "imgs/buttons/blur_plus.png", params["blur"], 1, persist=True),
-        Button("less_blur", "imgs/buttons/blur_minus.png", params["blur"], -1, persist=True)
+        Button("win_plus", "imgs/buttons/win_plus.png", params["width"], 1),
+        Button("win_minus", "imgs/buttons/win_minus.png", params["width"], -1),
+        Button("blur_plus", "imgs/buttons/blur_plus.png", params["blur"], 1, persist=True),
+        Button("blur_minus", "imgs/buttons/blur_minus.png", params["blur"], -1, persist=True)
     ]
 
     while True:
