@@ -202,18 +202,27 @@ argparse==1.1
 
 Before installing these packages make sure that their dependencies are taken care of. To compile `dlib` you need to have [cmake](https://cmake.org/) and C++ compiler.</br>
 On Linux both are covered by:
-```
+```bash
 $ sudo apt-get update && sudo apt-get cmake
 ```
 On Windows you can get `cmake` from https://cmake.org/download/ and `gcc` compiler for C++ from https://osdn.net/projects/mingw/releases/.
 
 To use `OpenCV` on Linux you might need to have the following installed:
-```
+```bash
 $ sudo apt-get install -y libsm6 libxext6 libxrender-dev libgl1-mesa-glx
 ```
 
-Now, to install the packages run:
+Now, to setup new virtual environment for this project and install all the dependencies on Linux run:
+```bash
+$ python -m venv venv
+$ source venv/bin/activate
+$ python -m pip install -r requirements.txt
 ```
+
+On Windows:
+```
+$ python -m venv venv
+$ venv\Scripts\activate.bat
 $ python -m pip install -r requirements.txt
 ```
 
@@ -266,6 +275,12 @@ Passing `-b 1` parameter will additionally draw bounding boxes around the hands 
 
 ```
 $ python hand_controls.py -b 1
+```
+
+If hand detector is having difficulties with detecting hands (e.g., due to bad lighting conditions) try reducing detector class probability threshold by specifying `-t` parameter:
+
+```
+$ python hand_controls.py -t 0.6
 ```
 
 To try the DnD enhancer simply run:
