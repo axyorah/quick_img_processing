@@ -24,15 +24,6 @@ def get_args() -> Dict:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-m", "--show_hand_mask", default="0",
-        help=(
-            "set to 1 to show hand mask "
-            "(as filled bounding boxes on a separate frame) "
-            "and to 0 to ignore it (default)"
-        )
-    )
-
-    parser.add_argument(
         "-b", "--show_hand_bbox", default="0",
         help=(
             "set to 1 to show hand bounding boxes "
@@ -51,7 +42,6 @@ def get_args() -> Dict:
     )
 
     args = vars(parser.parse_args())
-    args["show_hand_mask"] = False if args["show_hand_mask"] == "0" else True
     args["show_hand_bbox"] = False if args["show_hand_bbox"] == "0" else True
     args["threshold"] = float(args["threshold"])
 
