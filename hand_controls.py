@@ -16,7 +16,6 @@ FACE_FILTER_RCNN = "./dnn/facial/face_res10_300x300_ssd_iter_140000.caffemodel"
 HAND_DETECTOR_YAML = "./dnn/yolov5s.yaml"
 HAND_DETECTOR_DICT = "./dnn/yolov5_palm_state_dict.pt"
 
-IMGSZ = 448
 DEVICE = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 HALF = False
 
@@ -48,10 +47,15 @@ def get_args() -> Dict:
     return args
 
 class Detector(ABC):
-    def __init__(self, config_path, weights_path, num_classes=1):
+    def __init__(
+        self, 
+        config_path: str, 
+        weights_path: str, 
+        class_dict: Dict = None
+    ):
         self.config_path = config_path
         self.weights_path = weights_path
-        self.num_classes = num_classes
+        self.class_dict = class_dict or {0: 'obj'}
         self.detector = None
         self._detections = None
         self._mask = None
@@ -79,18 +83,18 @@ class YoloHandDetector(Detector):
         self, 
         config_path: str, 
         weights_path: str, 
-        num_classes: int,
+        class_dict: Dict = None,
         device: torch.device = torch.device('cpu'),
         half: bool = False
     ):
-        super().__init__(config_path, weights_path, num_classes)
+        super().__init__(config_path, weights_path, class_dict)
         self.device = device
         self.half = half
         self.load()
 
     def load(self) -> Model:
         # restore model from state_dict checkpoint
-        self.detector = Model(cfg=self.config_path, nc=self.num_classes)
+        self.detector = Model(cfg=self.config_path, nc=len(self.class_dict))
         ckpt = torch.load(self.weights_path)
         self.detector.load_state_dict(ckpt['model_state_dict'])
 
@@ -131,7 +135,30 @@ class YoloHandDetector(Detector):
         threshold: float = 0.75,
         sz: Tuple[int,int] = (None, None)
     ) -> List[List[float]]:
-
+        """
+        runs yolov5 on preprocessed `input_tensor` 
+        and stores hand detections and masks
+        with class probability above `threshold`; 
+        stores detections in format:
+        ```
+        [
+            [x1, y1, x2, y2, probability, class_idx],
+            ...
+        ]
+        ```
+        masks are stored as 2D np arrays of 0's
+        with area within object bboxes set to 255's;
+        if `sz` is specified as (tar height, tar width)
+        detections will be adjusted to match provided shape;
+        returns detections;
+        detections and masks can be assessed as:
+        ```
+        detector = YoloHandDetector(...)
+        detector.detect(...)
+        detections = detector.detections
+        mask = detector.mask
+        ```
+        """
         h, w = sz or input_tensor.shape[:2]
         raw_detections = self.detector(input_tensor)[0]
 
@@ -165,9 +192,9 @@ class CvFaceDetector(Detector):
         self, 
         config_path: str, 
         weights_path: str, 
-        num_classes: int = 1
+        class_dict: Dict = None
     ):
-        super().__init__(config_path, weights_path, num_classes)
+        super().__init__(config_path, weights_path, class_dict)
         self.load()
         
     def load(self) -> cv.dnn_Net:
@@ -191,13 +218,27 @@ class CvFaceDetector(Detector):
         threshold: float = 0.5, 
         sz: Tuple[int,int] = (None, None)
     ) -> List[List[int]]:
-
+        """
+        runs opencv built-in face detector on preprocessed 
+        `blob` (numpy array with shape (1,3,300,300));
+        stores detections with class probability above
+        `threshold` in format:
+        ```
+        [
+            [x1, y1, x2, y2, probability, class_index],
+            ...
+        ]
+        ```
+        if `sz` is specified as (tar height, tar width)
+        detections will be adjusted to match provided shape;
+        returns detections
+        """
         h, w = sz or blob.shape[-2:]
 
         self.detector.setInput(blob)
         raw_detections = self.detector.forward()
 
-        faces = []
+        detections = []
         for i in range(raw_detections.shape[2]):
             p,x1,y1,x2,y2 = raw_detections[0,0,i,2:7]
 
@@ -207,9 +248,9 @@ class CvFaceDetector(Detector):
             x1,x2 = map(lambda x: int(x * w), [x1,x2])
             y1,y2 = map(lambda y: int(y * h), [y1,y2])
 
-            faces.append([x1, y1, x2, y2, p, 0])
+            detections.append([x1, y1, x2, y2, p, 0])
 
-        return faces
+        return detections
 
 
 def blur_box(
@@ -276,7 +317,10 @@ class FrameManager:
         return frame
 
 
-def main():   
+def main():
+    # get command line args
+    args = get_args()
+
     # initiate parameters controled via `buttons`
     params = {
         "width": Param("width", 640, 200, 1000, resize_frame),
@@ -330,22 +374,19 @@ def main():
     cv.destroyAllWindows()
 
 if __name__ == "__main__":
-    args = get_args()
 
-    # adjust float precision: if no cuda - use float32
-    half = False if DEVICE.type == 'cpu' else HALF
-    
     face_detector = CvFaceDetector(
         FACE_FILTER_PROTO, 
         FACE_FILTER_RCNN, 
-        num_classes=1
+        class_dict={0: 'face'}
     )
+    
     hand_detector = YoloHandDetector(
         HAND_DETECTOR_YAML,
         HAND_DETECTOR_DICT,
-        num_classes=1, 
+        class_dict={0: 'hand'}, 
         device=DEVICE, 
-        half=half
+        half=False if DEVICE.type == 'cpu' else HALF
     )
 
     main()
