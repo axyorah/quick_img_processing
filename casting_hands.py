@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
+from typing import List, Tuple, Set, Dict, Optional, Union
+
 import torch
 import cv2 as cv
+import numpy as np
 import time
 
-from utils.pattern_utils import \
-    FistPatternEffect, HandPatternEffect, \
-    JutsuPatternEffect, LightningPatternEffect
-from utils.yolo_utils_by_ultralytics.yolo import Model
+from utils.pattern_utils import (
+    HaSPatternEffect, 
+    SpellPatternEffect,
+    KaboomPatternEffect, 
+    LightningPatternEffect
+)
+
+from utils.detector_utils import YoloTorchDetector
 
 DETECTOR_DICT = "./dnn/yolov5_gesture_state_dict.pt"
 DETECTOR_YAML = "./dnn/yolov5s.yaml"
@@ -14,42 +21,11 @@ IMGSZ = 448
 DEVICE = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 HALF = False
 
-def load_model(cfg_path, state_dict_path, device=torch.device('cpu'), half=False):
-    # restore model from state_dict checkpoint
-    detector = Model(cfg=cfg_path, nc=5)
-    ckpt = torch.load(state_dict_path)
-    detector.load_state_dict(ckpt['model_state_dict'])
-
-    # add non-max suppression
-    detector.nms()
-
-    # adjust precision
-    if half:
-        detector.half()
-    else:
-        detector.float()
-
-    # use cuda is available
-    detector.to(device)
-
-    # switch to inference mode
-    detector.eval()
-    return detector
 
 def adjust_frame(frame, tar_sz):
     frame = cv.resize(frame, tar_sz)
     frame = cv.flip(frame, 1)
     return frame
-
-def preprocess_frame(frame, sz, device='cpu', half=False):
-    tensor = cv.resize(frame, sz)    
-    tensor = tensor.transpose(2, 0, 1)
-    tensor = torch.from_numpy(tensor)
-    tensor = torch.unsqueeze(tensor, 0)
-    tensor = tensor.half() if half else tensor.float()
-    tensor = tensor / 255.0
-    tensor = tensor.to(device)
-    return tensor
 
 def draw_effects(frame, detections, classes):
     h,w = frame.shape[:2]
@@ -59,16 +35,14 @@ def draw_effects(frame, detections, classes):
     lightning_pt1, lightning_pt2 = (None,None), (None,None)
     
     for x1,y1,x2,y2,prob,clss in detections:
-        # get box coordinates
-        x1,x2 = map(lambda x: int(x * w / IMGSZ), [x1, x2])        
-        y1,y2 = map(lambda y: int(y * h / IMGSZ), [y1, y2])
-        clss = int(clss)
 
         # Recall: class indices start from 1 (0 is reserved for background)
         if classes[clss] == "hand":
-            handpattern.draw_pattern(frame, (x1,y1), (x2,y2))
+            spell.draw_pattern(frame, (x1,y1), (x2,y2))
+        
         elif classes[clss] == "fist":
-            fistpattern.draw_pattern(frame, (x1,y1), (x2,y2))            
+            has.draw_pattern(frame, (x1,y1), (x2,y2))            
+        
         elif classes[clss] == "teleportation_jutsu":
             # we can't afford many false-positives for teleportation_jutsu
             # as each detection would trigger 20-frames-long uninterruptible animation;
@@ -77,22 +51,39 @@ def draw_effects(frame, detections, classes):
             #(this is resolved in JutsuPatternEffect.draw_pattern())
             jutsu_detected = True
             jutsu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)
+        
         elif classes[clss]  == "horns":
             lightning_detected = True
             lightning_pt1, lightning_pt2 = (x1,y1), (x2,y2)
-    jutsupattern.draw_pattern(
-        frame, jutsu_detected, jutsu_pt1, jutsu_pt2)
-    lightningpattern.draw_pattern(
-        frame, lightning_detected, lightning_pt1, lightning_pt2)
+    
+    kaboom.draw_pattern(
+        frame, jutsu_detected, jutsu_pt1, jutsu_pt2
+    )
+
+    lightning.draw_pattern(
+        frame, lightning_detected, lightning_pt1, lightning_pt2
+    )
 
 
 def main():
     # adjust float precision: if no cuda - alawys use float32 instead of float16/float32
     half = False if DEVICE.type == 'cpu' else HALF
 
+    classes = [
+        'fist', 'hand', 'horns', 'teleportation_jutsu', 'tori_sign'
+    ]
+
     # load model
-    detector = load_model(DETECTOR_YAML, DETECTOR_DICT, device=DEVICE, half=half)
-    classes = ['fist', 'hand', 'horns', 'teleportation_jutsu', 'tori_sign']
+    detector = YoloTorchDetector(
+        DETECTOR_YAML, 
+        DETECTOR_DICT, 
+        class_dict = {
+            i: name for i, name in enumerate(classes, start=1)
+        },
+        device=DEVICE, 
+        half=half
+    )
+    
 
     # start video capture
     cv.namedWindow("frame")
@@ -111,10 +102,14 @@ def main():
         frame = adjust_frame(frame, (w,h))
 
         # convert to right format
-        input_tensor = preprocess_frame(frame, (IMGSZ, IMGSZ), device=DEVICE, half=half)
+        input_tensor = detector.preprocess(frame)
     
         # get detections for current frame
-        detections = detector(input_tensor)[0]
+        detections = detector.detect(
+            input_tensor, 
+            threshold=0.75,
+            sz=frame.shape[:2]
+        )
 
         # check detections and draw corresponding effects
         draw_effects(frame, detections, classes)        
@@ -130,9 +125,9 @@ def main():
 
 if __name__ == "__main__":
     # define class effects
-    fistpattern = FistPatternEffect()
-    handpattern = HandPatternEffect()
-    jutsupattern = JutsuPatternEffect()   
-    lightningpattern = LightningPatternEffect()  
+    has = HaSPatternEffect()
+    spell = SpellPatternEffect()
+    kaboom = KaboomPatternEffect()   
+    lightning = LightningPatternEffect()  
 
     main()
