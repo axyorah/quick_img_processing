@@ -6,7 +6,7 @@ import cv2 as cv
 import numpy as np
 import time
 
-from utils.pattern_utils import (
+from utils.effect_utils import (
     HaSPatternEffect, 
     SpellPatternEffect,
     KaboomPatternEffect, 
