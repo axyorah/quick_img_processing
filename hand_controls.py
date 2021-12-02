@@ -6,8 +6,8 @@ import torch
 import cv2 as cv
 import argparse
 import time
-from abc import ABC
 
+from utils.detector_utils import Detector
 from utils.hand_utils import Button, Param
 from utils.yolo_utils_by_ultralytics.yolo import Model
 
@@ -46,36 +46,6 @@ def get_args() -> Dict:
 
     return args
 
-class Detector(ABC):
-    def __init__(
-        self, 
-        config_path: str, 
-        weights_path: str, 
-        class_dict: Dict = None
-    ):
-        self.config_path = config_path
-        self.weights_path = weights_path
-        self.class_dict = class_dict or {0: 'obj'}
-        self.detector = None
-        self._detections = None
-        self._mask = None
-
-    def load(self):
-        pass
-
-    def preprocess(cls, frame):
-        pass
-
-    def detect(self, frame):
-        pass
-
-    @property
-    def detections(self):
-        return self._detections
-
-    @property
-    def mask(self):
-        return self._mask
 
 class YoloHandDetector(Detector):
     IMGSZ = 448
@@ -380,7 +350,7 @@ if __name__ == "__main__":
         FACE_FILTER_RCNN, 
         class_dict={0: 'face'}
     )
-    
+
     hand_detector = YoloHandDetector(
         HAND_DETECTOR_YAML,
         HAND_DETECTOR_DICT,
