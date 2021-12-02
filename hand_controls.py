@@ -84,12 +84,12 @@ def load_yolo_model(
     return detector
 
 def get_hand_masks(
-    detections: torch.tensor, 
+    detections: torch.TensorType, 
     frame: np.ndarray, 
     threshold: float = 0.5,
     show_bbox: bool = False, 
     show_mask: bool = False
-):
+) -> np.ndarray:
     h,w = frame.shape[:2]
     handmask = np.zeros(frame.shape)
     for x1, y1, x2, y2, prob, clss in detections:
@@ -113,7 +113,13 @@ def get_hand_masks(
 
     return handmask
 
-def blur_box(frame, pt1, pt2, k, sigma, weight=0.7):
+def blur_box(
+    frame: np.ndarray, 
+    pt1: Union[List[float], np.ndarray], 
+    pt2: Union[List[float], np.ndarray], 
+    k: int, 
+    sigma: int
+) -> np.ndarray:
     xmin,ymin = pt1
     xmax,ymax = pt2
 
@@ -124,7 +130,10 @@ def blur_box(frame, pt1, pt2, k, sigma, weight=0.7):
 
     return frame
 
-def detect_faces(frame):
+def detect_faces(frame: np.ndarray, threshold: float = 0.5) -> List[List[float]]:
+    """
+    returns a list of face bboxes in format [x,y,w,h]
+    """
     blob = cv.dnn.blobFromImage(
         cv.resize(frame, (300,300)), 1.0, (300,300), (104.0, 177.0, 123.0)
     )
@@ -133,14 +142,22 @@ def detect_faces(frame):
     faces = []
     for i in range(face_detections.shape[2]):
         p,x1,y1,x2,y2 = face_detections[0,0,i,2:7]
-        if p < 0.5:
+        if p < threshold:
             continue
         x1,x2 = map(lambda x: int(x * frame.shape[1]), [x1,x2])
         y1,y2 = map(lambda y: int(y * frame.shape[0]), [y1,y2])
         faces.append([x1, y1, x2-x1, y2-y1])
     return faces
 
-def blur_faces(frame, blur):
+def blur_faces(frame: np.ndarray, blur: int) -> np.ndarray:
+    """
+    applies gaussian blur to all faces detected in `frame`;
+    derives gaussian params `k` and `sigma` from specified `blur`:
+    ```
+    k = 1 + 2*blur
+    sigma = 1 + blur
+    ```
+    """
     faces = detect_faces(frame)    
     k     = 1 + 2*blur
     sigma = 1 +   blur
@@ -150,26 +167,43 @@ def blur_faces(frame, blur):
         
     return frame
         
-def resize_frame(frame, width):
+def resize_frame(frame: np.ndarray, width: Union[int,float]):
+    """
+    resizes current `frame` to specified `width` 
+    keeping the aspect ratio;
+    returns resized frame
+    """
     width = int(width)
     height = int(FrameManager.get_aspect_ratio(frame) * width)
     return cv.resize(frame, (width, height))
 
 class FrameManager:
     @classmethod
-    def get_aspect_ratio(cls, frame):
+    def get_aspect_ratio(cls, frame: np.ndarray) -> float:
+        """aspect ratio is ratio of img height to img width"""
         h,w = frame.shape[:2]
         return h/w
 
     @classmethod
-    def adjust(cls, frame, tar_sz):
+    def adjust(cls, frame: np.ndarray, tar_sz: Tuple[int,int]) -> np.ndarray:
+        """resizes and flips image frame"""
         frame = cv.resize(frame, tar_sz)
         frame = cv.flip(frame, 1)
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         return frame
 
     @classmethod
-    def preprocess(cls, frame, sz, device=None, half=False):
+    def preprocess(
+        cls, 
+        frame: np.ndarray, 
+        sz: Tuple[int,int], 
+        device: torch.device = None, 
+        half: bool = False
+    ) -> torch.TensorType:
+        """
+        preprocesses raw img frame (np.ndarray) for 
+        yolo5 torch detector 
+        """
         if device is None:
             device = torch.device('cpu')
         tensor = cv.resize(frame, sz)    
