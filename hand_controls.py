@@ -6,6 +6,8 @@ import torch
 import cv2 as cv
 import argparse
 import time
+from abc import ABC
+
 from utils.hand_utils import Button, Param
 from utils.yolo_utils_by_ultralytics.yolo import Model
 
@@ -55,6 +57,174 @@ def get_args() -> Dict:
 
     return args
 
+class Detector(ABC):
+    def __init__(self, config_path, weights_path, num_classes=1):
+        self.config_path = config_path
+        self.weights_path = weights_path
+        self.num_classes = num_classes
+        self.detector = None
+        self._detections = None
+        self._mask = None
+
+    def load(self):
+        pass
+
+    def preprocess(cls, frame):
+        pass
+
+    def detect(self, frame):
+        pass
+
+    @property
+    def detections(self):
+        return self._detections
+
+    @property
+    def mask(self):
+        return self._mask
+
+class YoloHandDetector(Detector):
+    IMGSZ = 448
+    def __init__(
+        self, 
+        config_path: str, 
+        weights_path: str, 
+        num_classes: int,
+        device: torch.device = torch.device('cpu'),
+        half: bool = False
+    ):
+        super().__init__(config_path, weights_path, num_classes)
+        self.device = device
+        self.half = half
+        self.load()
+
+    def load(self) -> Model:
+        # restore model from state_dict checkpoint
+        self.detector = Model(cfg=self.config_path, nc=self.num_classes)
+        ckpt = torch.load(self.weights_path)
+        self.detector.load_state_dict(ckpt['model_state_dict'])
+
+        # add non-max suppression
+        self.detector.nms()
+
+        # adjust precision
+        if self.half:
+            self.detector.half()
+        else:
+            self.detector.float()
+
+        # use cuda is available
+        self.detector.to(self.device)
+
+        # switch to inference mode
+        self.detector.eval()
+        return self.detector
+
+    def preprocess(self, frame: np.ndarray) -> torch.TensorType:
+        """
+        preprocesses raw img frame (np.ndarray) for 
+        yolo5 torch detector 
+        """
+        tensor = cv.resize(frame, (self.IMGSZ, self.IMGSZ))   
+        tensor = tensor.transpose(2, 0, 1)
+        tensor = torch.from_numpy(tensor)
+        tensor = torch.unsqueeze(tensor, 0)
+        tensor = tensor.half() if self.half else tensor.float()
+        tensor = tensor / 255.0
+        tensor = tensor.to(self.device)
+
+        return tensor
+
+    def detect(
+        self, 
+        input_tensor: torch.TensorType, 
+        threshold: float = 0.75,
+        sz: Tuple[int,int] = (None, None)
+    ) -> List[List[float]]:
+
+        h, w = sz or input_tensor.shape
+        raw_detections = self.detector(input_tensor)[0]
+
+        self._detections = []
+        self._mask = np.zeros((h, w), dtype=int)
+        for x1, y1, x2, y2, prob, clss in raw_detections:
+            if prob < threshold:
+                continue
+        
+            # get box coordinates
+            x1, x2 = map(lambda x: int(x * w / self.IMGSZ), [x1, x2])
+            y1, y2 = map(lambda y: int(y * h / self.IMGSZ), [y1, y2])
+            clss = int(clss)
+
+            self._detections.append(x1, y1, x2, y2, prob, clss)
+            self._mask[y1:y2, x1:x2, :] = 255
+
+        return self._detections
+
+    def show(self, frame: np.ndarray) -> None:
+        for x1, y1, x2, y2, prob, clss in self._detections:        
+            # get box coordinates
+            cv.rectangle(frame, (x1,y1), (x2,y2), (0,0,255), 2)
+
+
+class CvFaceDetector(Detector):
+    IMGSZ = 300
+    def __init__(
+        self, 
+        config_path: str, 
+        weights_path: str, 
+        num_classes: int
+    ):
+        super().__init__(config_path, weights_path, num_classes)
+        self.load()
+        
+    def load(self):
+        self.detector = cv.dnn.readNetFromCaffe(
+            self.config_path,
+            self.weights_path
+        )
+        return self.detector
+
+    def preprocess(self, frame: np.ndarray):
+        return cv.dnn.blobFromImage(
+            cv.resize(frame, (self.IMGSZ, self.IMGSZ)), 
+            1.0, 
+            (self.IMGSZ, self.IMGSZ), 
+            (104.0, 177.0, 123.0)
+        )
+
+    def detect(
+        self, 
+        blob: np.ndarray, 
+        threshold: float = 0.5, 
+        sz: Tuple[int,int] = (None, None)
+    ) -> List[List[int]]:
+
+        h, w = sz or blob.shape
+
+        self.detector.setInput(blob)
+        face_detections = self.detector.forward()
+
+        faces = []
+        for i in range(face_detections.shape[2]):
+            p,x1,y1,x2,y2 = face_detections[0,0,i,2:7]
+            if p < threshold:
+                continue
+            x1,x2 = map(lambda x: int(x * h), [x1,x2])
+            y1,y2 = map(lambda y: int(y * w), [y1,y2])
+            faces.append([x1, y1, x2-x1, y2-y1])
+
+        return faces
+
+
+
+    
+
+
+
+
+
+
 def load_yolo_model(
     cfg_path: str, 
     state_dict_path: str, 
@@ -97,7 +267,7 @@ def get_hand_masks(
             continue
         
         # get box coordinates
-        x1, x2 = map(lambda x: int(x * w / IMGSZ), [x1, x2])        
+        x1, x2 = map(lambda x: int(x * w / IMGSZ), [x1, x2])
         y1, y2 = map(lambda y: int(y * h / IMGSZ), [y1, y2])
         clss = int(clss)
 
@@ -206,7 +376,7 @@ class FrameManager:
         """
         if device is None:
             device = torch.device('cpu')
-        tensor = cv.resize(frame, sz)    
+        tensor = cv.resize(frame, sz)
         tensor = tensor.transpose(2, 0, 1)
         tensor = torch.from_numpy(tensor)
         tensor = torch.unsqueeze(tensor, 0)
