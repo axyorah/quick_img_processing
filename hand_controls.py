@@ -173,12 +173,12 @@ class CvFaceDetector(Detector):
         self, 
         config_path: str, 
         weights_path: str, 
-        num_classes: int
+        num_classes: int = 1
     ):
         super().__init__(config_path, weights_path, num_classes)
         self.load()
         
-    def load(self):
+    def load(self) -> cv.dnn_Net:
         self.detector = cv.dnn.readNetFromCaffe(
             self.config_path,
             self.weights_path
@@ -200,19 +200,22 @@ class CvFaceDetector(Detector):
         sz: Tuple[int,int] = (None, None)
     ) -> List[List[int]]:
 
-        h, w = sz or blob.shape
+        h, w = sz or blob.shape[-2:]
 
         self.detector.setInput(blob)
-        face_detections = self.detector.forward()
+        raw_detections = self.detector.forward()
 
         faces = []
-        for i in range(face_detections.shape[2]):
-            p,x1,y1,x2,y2 = face_detections[0,0,i,2:7]
+        for i in range(raw_detections.shape[2]):
+            p,x1,y1,x2,y2 = raw_detections[0,0,i,2:7]
+
             if p < threshold:
                 continue
-            x1,x2 = map(lambda x: int(x * h), [x1,x2])
-            y1,y2 = map(lambda y: int(y * w), [y1,y2])
-            faces.append([x1, y1, x2-x1, y2-y1])
+
+            x1,x2 = map(lambda x: int(x * w), [x1,x2])
+            y1,y2 = map(lambda y: int(y * h), [y1,y2])
+
+            faces.append([x1, y1, x2, y2, p, 0])
 
         return faces
 
@@ -290,6 +293,7 @@ def blur_box(
     k: int, 
     sigma: int
 ) -> np.ndarray:
+
     xmin,ymin = pt1
     xmax,ymax = pt2
 
@@ -300,25 +304,6 @@ def blur_box(
 
     return frame
 
-def detect_faces(frame: np.ndarray, threshold: float = 0.5) -> List[List[float]]:
-    """
-    returns a list of face bboxes in format [x,y,w,h]
-    """
-    blob = cv.dnn.blobFromImage(
-        cv.resize(frame, (300,300)), 1.0, (300,300), (104.0, 177.0, 123.0)
-    )
-    face_detector.setInput(blob)
-    face_detections = face_detector.forward()
-    faces = []
-    for i in range(face_detections.shape[2]):
-        p,x1,y1,x2,y2 = face_detections[0,0,i,2:7]
-        if p < threshold:
-            continue
-        x1,x2 = map(lambda x: int(x * frame.shape[1]), [x1,x2])
-        y1,y2 = map(lambda y: int(y * frame.shape[0]), [y1,y2])
-        faces.append([x1, y1, x2-x1, y2-y1])
-    return faces
-
 def blur_faces(frame: np.ndarray, blur: int) -> np.ndarray:
     """
     applies gaussian blur to all faces detected in `frame`;
@@ -328,12 +313,14 @@ def blur_faces(frame: np.ndarray, blur: int) -> np.ndarray:
     sigma = 1 + blur
     ```
     """
-    faces = detect_faces(frame)    
+    blob = face_detector.preprocess(frame)
+    detections = face_detector.detect(blob, sz=frame.shape[:2])
+
     k     = 1 + 2*blur
     sigma = 1 +   blur
     
-    for (x,y,w,h) in faces:
-        blur_box(frame, (x,y), (x+w,y+h), k, sigma)
+    for x1, y1, x2, y2, prob, clss in detections:
+        blur_box(frame, (x1,y1), (x2,y2), k, sigma)
         
     return frame
         
@@ -452,12 +439,8 @@ if __name__ == "__main__":
 
     # adjust float precision: if no cuda - use float32
     half = False if DEVICE.type == 'cpu' else HALF
-
-    # get out-of-the-box face filter from opencv
-    face_detector = cv.dnn.readNetFromCaffe(
-        FACE_FILTER_PROTO,
-        FACE_FILTER_RCNN
-    )
+    
+    face_detector = CvFaceDetector(FACE_FILTER_PROTO, FACE_FILTER_RCNN, 1)
 
     # load the inference model for hand detector
     hand_detector = load_yolo_model(
