@@ -150,7 +150,7 @@ class Polygon(Pattern):
         
         return self.vertices
 
-class FistPatternEffect:
+class HaSPatternEffect:
     def __init__(self):        
         self.center = np.array([[0,0]])
         self.perlin = PerlinFlow().get_perlin()
@@ -219,7 +219,7 @@ class FistPatternEffect:
                 cv.polylines(frame, [vertices], True, (0,0,255), 2)
                 
                 
-class HandPatternEffect:
+class SpellPatternEffect:
     def __init__(self):
         self.scale0 = 0.5
         self.center = np.array([[0,0]])
@@ -377,7 +377,7 @@ class HandPatternEffect:
                 frame, [vertices], True, self.colors[i], 2
             )
             
-class JutsuPatternEffect:
+class KaboomPatternEffect:
     def __init__(self):
         self.fade = 5 # num of kaboom frames that gradually fade at the end
         self.load_frames()
