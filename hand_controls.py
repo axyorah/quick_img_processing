@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from typing import List, Tuple, Dict, Set, Optional, Union
 
 import numpy as np
 import torch
@@ -17,23 +18,50 @@ IMGSZ = 448
 DEVICE = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 HALF = False
 
-def get_args():
+def get_args() -> Dict:
     parser = argparse.ArgumentParser()
+
     parser.add_argument(
         "-m", "--show_hand_mask", default="0",
-        help="set to 1 to show hand mask" +\
-            "(as filled bounding boxes on a separate frame)" +\
-            "and to 0 to ignore it (default)")
+        help=(
+            "set to 1 to show hand mask "
+            "(as filled bounding boxes on a separate frame) "
+            "and to 0 to ignore it (default)"
+        )
+    )
+
     parser.add_argument(
         "-b", "--show_hand_bbox", default="0",
-        help="set to 1 to show hand bounding boxes" +\
-            "and to 0 to ignore it (default)")
+        help=(
+            "set to 1 to show hand bounding boxes "
+            "and to 0 to ignore it (default)"
+        )
+    )
+
+    parser.add_argument(
+        "-t", '--threshold', type=float, default=0.7,
+        help=(
+            "probability threshold for hand detector; "
+            "by default set to `0.7`; decrease it detector "
+            "has difficulties detecting your hand "
+            "(e.g., because of bad lighting conditions)"
+        )
+    )
 
     args = vars(parser.parse_args())
+    args["show_hand_mask"] = False if args["show_hand_mask"] == "0" else True
+    args["show_hand_bbox"] = False if args["show_hand_bbox"] == "0" else True
+    args["threshold"] = float(args["threshold"])
 
     return args
 
-def load_yolo_model(cfg_path, state_dict_path, num_classes, device=torch.device('cpu'), half=False):
+def load_yolo_model(
+    cfg_path: str, 
+    state_dict_path: str, 
+    num_classes: int, 
+    device: torch.device = torch.device('cpu'), 
+    half: bool = False
+) -> Model:
     # restore model from state_dict checkpoint
     detector = Model(cfg=cfg_path, nc=num_classes)
     ckpt = torch.load(state_dict_path)
@@ -56,17 +84,18 @@ def load_yolo_model(cfg_path, state_dict_path, num_classes, device=torch.device(
     return detector
 
 def get_hand_masks(
-    detections, 
-    frame, 
-    threshold=0.5,
-    show_bbox=0, 
-    show_mask=0
+    detections: torch.tensor, 
+    frame: np.ndarray, 
+    threshold: float = 0.5,
+    show_bbox: bool = False, 
+    show_mask: bool = False
 ):
     h,w = frame.shape[:2]
     handmask = np.zeros(frame.shape)
     for x1, y1, x2, y2, prob, clss in detections:
         if prob < threshold:
             continue
+        
         # get box coordinates
         x1, x2 = map(lambda x: int(x * w / IMGSZ), [x1, x2])        
         y1, y2 = map(lambda y: int(y * h / IMGSZ), [y1, y2])
@@ -194,9 +223,9 @@ def main():
         handmask = get_hand_masks(
             hand_detections, 
             frame, 
-            threshold=0.7,
-            show_bbox=int(args["show_hand_bbox"]),
-            show_mask=int(args["show_hand_mask"])
+            threshold=args["threshold"],
+            show_bbox=args["show_hand_bbox"],
+            show_mask=args["show_hand_mask"]
         )
 
         # add buttons to frame and resolve possible overlaps
