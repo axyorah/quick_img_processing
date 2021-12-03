@@ -3,11 +3,11 @@ from typing import List, Tuple, Dict, Set, Optional, Union
 import os
 import cv2 as cv
 import numpy as np
-try:
-    from utils.perlin_flow import PerlinFlow
-except:
-    from perlin_flow import PerlinFlow
 
+if __name__ == "__main__":
+    from perlin_flow import PerlinFlow
+else:
+    from utils.perlin_flow import PerlinFlow
 
 def rotate(vecs: np.ndarray, angle: float):
     """
@@ -23,6 +23,86 @@ def rotate(vecs: np.ndarray, angle: float):
             [np.sin(angle), np.sin(np.pi/2 + angle)]
         ])
     )
+
+class Shape:
+    def __init__(self, vertices):
+        self._center = np.array([[0, 0]])
+        self._vertices = np.array(vertices).reshape(-1,2)
+        self._dist0 = self._get_avg_dist_from_center()
+        
+    def _get_avg_dist_from_center(self):
+        self._dist = np.linalg.norm(self._vertices, axis=1).mean()
+        return self._dist        
+        
+    def translate(self, vec):
+        self._center += np.array(vec).reshape(-1, 2)
+    
+    def scale(self, scalar, absolute=True):
+        if absolute:
+            coeff = self._dist0 / self._get_avg_dist_from_center()
+        else:
+            coeff = 1
+        self._vertices *= (scalar * coeff)
+    
+    def rotate(self, angle):
+        self._vertices = rotate(self._vertices, angle)
+    
+    @property
+    def vertices(self):
+        return self._vertices + self._center
+
+
+class Poly(Shape):
+    def __init__(self, num_vertices, angle=None):
+        self.num_vertices = num_vertices
+        self.angle = angle
+        self._get_init_vertices()            
+        super().__init__( self._vertices )
+
+    def _get_init_vertices(self):
+        angle = self.angle or 2*np.pi/self.num_vertices
+        angles = [
+            angle * i for i in range(self.num_vertices + 1)
+        ]
+
+        self._vertices = np.concatenate([
+            rotate(np.array([[1, 0]]), angle)
+            for angle in angles
+        ], axis=0) 
+        
+        return self._vertices
+
+
+class PerlinShape(Shape):
+    def __init__(self, vertices, perlin=None, perlin_modifier=1):
+        super().__init__(vertices)
+        self.perlin = perlin if perlin is not None else PerlinFlow().get_perlin()
+        self.perlin_col_idx = 0
+        self.perlin_row_idx = np.random.choice(self.perlin.shape[0])
+        self.perlin_modifier = perlin_modifier
+        
+    def next(self):
+        self.perlin_col_idx += 1
+        self.perlin_col_idx %= self.perlin.shape[1]
+
+        self.rotate(
+            self.perlin[
+                self.perlin_row_idx, 
+                self.perlin_col_idx
+            ] * self.perlin_modifier 
+        )
+
+
+
+
+
+
+
+
+
+
+
+
     
 class Pattern:
     def __init__(
