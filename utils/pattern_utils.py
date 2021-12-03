@@ -93,6 +93,42 @@ class PerlinShape(Shape):
         )
 
 
+class PerlinComplexShape:
+    def __init__(self):
+        self.perlin = PerlinFlow().get_perlin()
+        self._scale0 = 1
+        self.children = [] # each child is `PerlinShape`
+
+    def translate(self, pt1, pt2):
+        """translate into the center of the box between pt1 and pt2"""
+        x1,y1 = pt1
+        x2,y2 = pt2
+        
+        center = np.array([[(x2+x1)//2, (y2+y1)//2]])
+        
+        for child in self.children:
+            child._center = center
+    
+    def scale(self, pt1, pt2):
+        x1,y1 = pt1
+        x2,y2 = pt2
+        
+        scale = max((x2-x1),(y2-y1))
+
+        for child in self.children:
+            child.scale(scale * self._scale0)
+    
+    def next(self):
+        for child in self.children:
+            child.next()
+    
+    @property
+    def vertices(self):
+        return [child.vertices for child in self.children]
+
+    def draw(self, frame):
+        for child in self.children:
+            cv.fillPoly(frame, [child.vertices.astype(int)], (0,0,255))
 
 
 

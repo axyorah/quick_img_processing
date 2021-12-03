@@ -7,7 +7,7 @@ import numpy as np
 import time
 
 from utils.effect_utils import (
-    HaSPatternEffect, 
+    HaSEffect,
     SpellPatternEffect,
     KaboomPatternEffect, 
     LightningPatternEffect
@@ -41,7 +41,12 @@ def draw_effects(frame, detections, classes):
             spell.draw_pattern(frame, (x1,y1), (x2,y2))
         
         elif classes[clss] == "fist":
-            has.draw_pattern(frame, (x1,y1), (x2,y2))            
+            has.next()
+            has.translate((x1,y1), (x2,y2))
+            has.scale((x1,y1), (x2,y2))
+            has.draw(frame)
+
+            #has.draw_pattern(frame, (x1,y1), (x2,y2))            
         
         elif classes[clss] == "teleportation_jutsu":
             # we can't afford many false-positives for teleportation_jutsu
@@ -125,7 +130,7 @@ def main():
 
 if __name__ == "__main__":
     # define class effects
-    has = HaSPatternEffect()
+    has = HaSEffect()
     spell = SpellPatternEffect()
     kaboom = KaboomPatternEffect()   
     lightning = LightningPatternEffect()  

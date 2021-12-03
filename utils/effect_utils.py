@@ -5,10 +5,89 @@ import numpy as np
 
 if __name__ == "__main__":
     from perlin_flow import PerlinFlow
-    from pattern_utils import Pattern, Polygon
+    from pattern_utils import (
+        Pattern, 
+        Polygon, 
+        Shape,
+        Poly,
+        PerlinShape, 
+        PerlinComplexShape
+    )
 else:
     from utils.perlin_flow import PerlinFlow
-    from utils.pattern_utils import Pattern, Polygon
+    from utils.pattern_utils import (
+        Pattern, 
+        Polygon, 
+        Shape,
+        Poly,
+        PerlinShape, 
+        PerlinComplexShape
+    )
+
+
+class HaSEffect(PerlinComplexShape):
+    PATH_VERTICES = os.path.join('utils', 'custom_pattern.txt')
+    def __init__(self):
+        super().__init__()
+        self.perlin_row_idx = 0
+        
+        self._scale0 = 0.75
+        self._star_scale0 = 0.3
+
+        self.children = [self._get_has()] + self._get_stars()
+        
+        #self._has = self._get_has()
+        #self._stars = self._get_stars()        
+
+    def _get_has(self):
+        with open(self.PATH_VERTICES, 'r') as f:
+            lines = f.read().splitlines()
+
+        xy = []
+        for line in lines:
+            x, y = map(int, line.split(' '))
+            xy.append([x, y])
+            
+        xy = np.array(xy)
+        
+        xmax,xmin,ymax,ymin = \
+            xy[:,0].max(), xy[:,0].min(), xy[:,1].max(), xy[:,1].min()
+        center = np.array([[360, 376]])
+        scale = int(np.mean([xmax - xmin, ymax - ymin]))
+            
+        xy -= center # center around 0
+        xy = xy / scale # fit into a unit circle
+
+        has = PerlinShape(xy, perlin=self.perlin)
+        has.perlin_row_idx = self.perlin_row_idx + self.perlin.shape[0] // 2
+        
+        return has
+
+    def _get_stars(self):
+        n_stars, n_poly = 10, 5  
+        angle = 2 * np.pi / n_poly * 2
+        
+        stars = [
+            Poly(n_poly, angle=angle) 
+            for _ in range(n_stars)
+        ]
+        
+        for i,star in enumerate(stars):
+            star.scale(self._star_scale0)
+            star.translate([1, 0])
+            star = Shape(star.vertices)
+            star.rotate(2 * np.pi / n_stars * i)
+            
+            stars[i] = PerlinShape(
+                star.vertices, perlin=self.perlin
+            )
+            stars[i].perlin_row_idx = self.perlin_row_idx
+            
+        self._stars = stars
+        return self._stars
+
+
+
 
 class HaSPatternEffect:
     def __init__(self):        
