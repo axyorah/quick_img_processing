@@ -35,25 +35,20 @@ class HaSEffect(PerlinComplexShape):
         self._star_scale0 = 0.3
 
         self.children = [self._get_has()] + self._get_stars()
-        
-        #self._has = self._get_has()
-        #self._stars = self._get_stars()        
 
     def _get_has(self):
         with open(self.PATH_VERTICES, 'r') as f:
             lines = f.read().splitlines()
 
-        xy = []
-        for line in lines:
-            x, y = map(int, line.split(' '))
-            xy.append([x, y])
-            
-        xy = np.array(xy)
+        xy = np.array([
+            list(map(int, line.split(' ')))
+            for line in lines
+        ])
         
         xmax,xmin,ymax,ymin = \
-            xy[:,0].max(), xy[:,0].min(), xy[:,1].max(), xy[:,1].min()
-        center = np.array([[360, 376]])
+            xy[:,0].max(), xy[:,0].min(), xy[:,1].max(), xy[:,1].min()        
         scale = int(np.mean([xmax - xmin, ymax - ymin]))
+        center = np.array([[360, 376]])
             
         xy -= center # center around 0
         xy = xy / scale # fit into a unit circle
@@ -89,73 +84,7 @@ class HaSEffect(PerlinComplexShape):
 
 
 
-class HaSPatternEffect:
-    def __init__(self):        
-        self.center = np.array([[0,0]])
-        self.perlin = PerlinFlow().get_perlin()
-        self.perlin_idx = np.random.choice(self.perlin.shape[0])
-        
-        self.scale0 = 0.75
-        self.n_stars = 10
-        self.rad_stars = 0.3
-        self.star_dist_from_center = 1.
-        
-        self.redpattern = self.get_red()        
-        self.starpatterns = self.get_stars(
-                n_stars=self.n_stars, 
-                rad_stars = self.rad_stars*self.scale0,                
-                dist_from_center=self.star_dist_from_center*self.scale0)  
-        
-        self.patterns = [self.redpattern] + self.starpatterns
-        
-    def get_red(self):
-        RED_PATH = "./utils/custom_pattern.txt" if os.path.isfile("./utils/custom_pattern.txt") \
-            else "./custom_pattern.txt"
-        with open(RED_PATH, "r") as f:
-            xy = []
-            lines = f.read().splitlines()
-            for line in lines:
-                x,y = map(int, line.split(" "))
-                xy.append([x,y])
-            xy = np.array(xy)
-            xmax,xmin,ymax,ymin = \
-                xy[:,0].max(), xy[:,0].min(), xy[:,1].max(), xy[:,1].min()
-            #center = np.array([[(xmax+xmin)//2, (ymax+ymin)//2]])
-            center = np.array([[360, 376]])
-            scale = int(np.mean([xmax - xmin, ymax - ymin]))
-            
-            xy -= center # center around 0
-            xy = xy / scale # fit into a unit circle
-            xy *= self.scale0 # fit into a circle with needed rad
-            
-        return Pattern(xy, center)  
-        
-    def get_stars(self, n_stars=10, rad_stars=0.3, dist_from_center=1.3):
-        stars = [Polygon(5, self.center, 
-                         rad_stars, 
-                         dist_from_center=dist_from_center,
-                         perlin=self.perlin, 
-                         perlin_idx=self.perlin_idx)
-                 for i in range(n_stars)]
-        for i,star in enumerate(stars):        
-            star.initialize_vertices(angles=[2*i * 2*np.pi/5 for i in range(6)])
-            star.initialize_dists()
-            star.rotate_vertices(i * 2*np.pi/n_stars)
-        return stars
-        
-    def draw_pattern(self, frame, pt1, pt2, fill=True):
-        x1,y1 = pt1
-        x2,y2 = pt2
-        
-        center = np.array([[(x2+x1)//2, (y2+y1)//2]])
-        scale = max((x2-x1),(y2-y1))
-            
-        for i,pattern in enumerate(self.patterns):
-            vertices = pattern.update_vertices(center=center, scale=scale)
-            if fill:
-                cv.fillPoly(frame, [vertices], (0,0,255))
-            else:
-                cv.polylines(frame, [vertices], True, (0,0,255), 2)
+
 
 class SpellPatternEffect:
     def __init__(self):
