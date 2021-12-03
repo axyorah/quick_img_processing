@@ -36,6 +36,7 @@ class Shape:
         
     def translate(self, vec):
         self._center += np.array(vec).reshape(-1, 2)
+        return self
     
     def scale(self, scalar, absolute=True):
         if absolute:
@@ -43,9 +44,11 @@ class Shape:
         else:
             coeff = 1
         self._vertices *= (scalar * coeff)
+        return self
     
     def rotate(self, angle):
         self._vertices = rotate(self._vertices, angle)
+        return self
     
     @property
     def vertices(self):
@@ -91,6 +94,7 @@ class PerlinShape(Shape):
                 self.perlin_col_idx
             ] * self.perlin_modifier 
         )
+        return self
 
 
 class PerlinComplexShape:
@@ -108,6 +112,8 @@ class PerlinComplexShape:
         
         for child in self.children:
             child._center = center
+
+        return self
     
     def scale(self, pt1, pt2):
         x1,y1 = pt1
@@ -117,10 +123,14 @@ class PerlinComplexShape:
 
         for child in self.children:
             child.scale(scale * self._scale0)
+
+        return self
     
     def next(self):
         for child in self.children:
             child.next()
+
+        return self
     
     @property
     def vertices(self):
