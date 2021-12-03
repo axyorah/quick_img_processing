@@ -26,16 +26,17 @@ def rotate(vecs: np.ndarray, angle: float):
 
 class Shape:
     def __init__(self, vertices):
-        self._center = np.array([[0, 0]])
+        self._center = np.array([[0, 0]], dtype=float)
         self._vertices = np.array(vertices).reshape(-1,2)
         self._dist0 = self._get_avg_dist_from_center()
+        self._scale0 = 1
         
     def _get_avg_dist_from_center(self):
         self._dist = np.linalg.norm(self._vertices, axis=1).mean()
         return self._dist        
         
     def translate(self, vec):
-        self._center += np.array(vec).reshape(-1, 2)
+        self._center += np.array(vec, dtype=float).reshape(-1, 2)
         return self
     
     def scale(self, scalar, absolute=True):
@@ -77,12 +78,15 @@ class Poly(Shape):
 
 
 class PerlinShape(Shape):
-    def __init__(self, vertices, perlin=None, perlin_modifier=1):
+    def __init__(self, vertices, perlin=None, perlin_modifier=1, perlin_row_idx=None):
         super().__init__(vertices)
         self.perlin = perlin if perlin is not None else PerlinFlow().get_perlin()
-        self.perlin_col_idx = 0
-        self.perlin_row_idx = np.random.choice(self.perlin.shape[0])
         self.perlin_modifier = perlin_modifier
+        self.perlin_col_idx = 0
+        self.perlin_row_idx = (
+            perlin_row_idx if perlin_row_idx is not None
+            else np.random.choice(self.perlin.shape[0])
+        ) 
         
     def next(self):
         self.perlin_col_idx += 1
@@ -98,10 +102,9 @@ class PerlinShape(Shape):
 
 
 class PerlinComplexShape:
-    def __init__(self):
-        self.perlin = PerlinFlow().get_perlin()
-        self._scale0 = 1
-        self.children = [] # each child is `PerlinShape`
+    def __init__(self, perlin=None):
+        self.perlin = perlin if perlin is not None else PerlinFlow().get_perlin()
+        self.children = [] # each child is `PerlinShape` with `next()` method
 
     def translate(self, pt1, pt2):
         """translate into the center of the box between pt1 and pt2"""

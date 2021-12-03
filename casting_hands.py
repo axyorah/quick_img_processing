@@ -8,7 +8,7 @@ import time
 
 from utils.effect_utils import (
     HaSEffect,
-    SpellPatternEffect,
+    SpellEffect,
     KaboomPatternEffect, 
     LightningPatternEffect
 )
@@ -38,15 +38,16 @@ def draw_effects(frame, detections, classes):
 
         # Recall: class indices start from 1 (0 is reserved for background)
         if classes[clss] == "hand":
-            spell.draw_pattern(frame, (x1,y1), (x2,y2))
+            spell.next()
+            spell.translate((x1,y1), (x2,y2))
+            spell.scale((x1,y1), (x2,y2))
+            spell.draw(frame)
         
         elif classes[clss] == "fist":
             has.next()
             has.translate((x1,y1), (x2,y2))
             has.scale((x1,y1), (x2,y2))
-            has.draw(frame)
-
-            #has.draw_pattern(frame, (x1,y1), (x2,y2))            
+            has.draw(frame)         
         
         elif classes[clss] == "teleportation_jutsu":
             # we can't afford many false-positives for teleportation_jutsu
@@ -131,7 +132,7 @@ def main():
 if __name__ == "__main__":
     # define class effects
     has = HaSEffect()
-    spell = SpellPatternEffect()
+    spell = SpellEffect()
     kaboom = KaboomPatternEffect()   
     lightning = LightningPatternEffect()  
 

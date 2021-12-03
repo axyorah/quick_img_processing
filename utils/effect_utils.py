@@ -82,6 +82,132 @@ class HaSEffect(PerlinComplexShape):
         return self._stars
 
 
+class SpellEffect(PerlinComplexShape):
+    def __init__(self):
+        super().__init__()
+        self.perlin_row_idx = np.random.choice(self.perlin.shape[0])
+        self._scale0 = 0.5
+
+        self.n_tris = 3
+        self.n_sq = 6
+        self.n_hex = 2
+        self.n_circs = 1
+        self.n_mtris = 6
+        self.n_pents = 1
+        
+        self.children = (
+            self._get_tris()  + 
+            self._get_squares() +
+            self._get_hex() + 
+            self._get_circle() +
+            self._get_minitris() + 
+            self._get_pents()
+        )
+        self.colors = [
+            (
+                int(64*i/self.n_tris + 15*(self.n_tris - i)/self.n_tris),
+                int(255*i/self.n_tris + 225*(self.n_tris - i)/self.n_tris),
+                int(0*i/self.n_tris + 192*(self.n_tris - i)/self.n_tris)
+            ) for i in range(self.n_tris)
+        ] + [
+            (
+                int(29*i/self.n_sq + 245*(self.n_sq - i)/self.n_sq),
+                int(230*i/self.n_sq + 157*(self.n_sq - i)/self.n_sq),
+                int(181*i/self.n_sq + 10*(self.n_sq - i)/self.n_sq)
+            ) for i in range(self.n_sq)
+        ] + [
+            (
+                int(225*i/self.n_hex + 227*(self.n_hex - i)/self.n_hex),
+                int(225*i/self.n_hex + 138*(self.n_hex - i)/self.n_hex),
+                int(9*i/self.n_hex + 10*(self.n_hex - i)/self.n_hex)
+            ) for i in range(self.n_hex)
+        ]  + \
+            [(221,157,9)]*self.n_circs + \
+            [(234,217,0)]*self.n_mtris + \
+            [(0,242,255)]*self.n_pents
+
+    def _get_tris(self):
+        tri_rad = 0.7 # center of the circle that touches triangle vertices
+
+        return [
+            PerlinShape(
+                Poly(3).scale( tri_rad ).vertices, 
+                perlin=self.perlin,
+                perlin_row_idx=i * self.perlin.shape[0]//self.n_tris
+            ) for i in range(self.n_tris)
+        ]
+        
+    def _get_squares(self):
+        sq_rad = 1.1
+
+        return [
+            PerlinShape(
+                Poly(4)\
+                    .scale( (0.93 if i%2 else 1)*sq_rad )\
+                    .vertices,
+                perlin=self.perlin,
+                perlin_row_idx=self.perlin_row_idx
+            ).rotate( i//2 * 2*np.pi/(self.n_sq//2) / 4 )
+            for i in range(self.n_sq)
+        ]
+    
+    def _get_hex(self):
+        hex_rad = 1.40
+
+        return [
+            PerlinShape(
+                Poly(6)\
+                    .scale( (0.93 if i%2 else 1)*hex_rad )\
+                    .vertices,
+                perlin=self.perlin,
+                perlin_row_idx=0
+            ) for i in range(self.n_hex)
+        ]
+    
+    def _get_circle(self):
+        circ_rad = [1.15, 1.40, 1.45]
+
+        return [
+            PerlinShape(
+                Poly(18).scale( circ_rad[i] ).vertices,
+                perlin=self.perlin,
+                perlin_row_idx=0
+            ) for i in range(self.n_circs)
+        ]
+        
+    def _get_minitris(self):
+        mtri_rad = 0.2
+        mtri_dist = 1.55
+
+        return [
+            PerlinShape(
+                Poly(3)\
+                    .scale( mtri_rad )\
+                    .translate([mtri_dist, 0])\
+                    .vertices,
+                perlin=self.perlin,
+                perlin_row_idx=0
+            ).rotate(i * 2*np.pi/self.n_mtris) 
+            for i in range(self.n_mtris)
+        ]
+    
+    def _get_pents(self):        
+        pent_rad = 0.3
+
+        return [
+            PerlinShape(
+                Poly(5, angle=2*np.pi/5 * 2)\
+                    .scale( pent_rad )\
+                    .vertices,
+                perlin=self.perlin
+            ) for i in range(self.n_pents)
+        ]
+
+    def draw(self, frame):
+        for child, color in zip(self.children, self.colors):
+            cv.polylines(
+                frame, [child.vertices.astype(int)], True, color, 2
+            )
 
 
 
@@ -112,28 +238,25 @@ class SpellPatternEffect:
             self.hexes + self.circles + \
             self.mtris + self.pents
             
-        self.colors = \
-            [
+        self.colors = [
                 (
                     int(64*i/self.n_tris + 15*(self.n_tris-i)/self.n_tris),
                     int(255*i/self.n_tris + 225*(self.n_tris-i)/self.n_tris),
                     int(0*i/self.n_tris + 192*(self.n_tris-i)/self.n_tris)
                 ) for i in range(self.n_tris)
-            ] + \
-            [
+            ] + [
                 (
                     int(29*i/self.n_sq + 245*(self.n_sq-i)/self.n_sq),
                     int(230*i/self.n_sq + 157*(self.n_sq-i)/self.n_sq),
                     int(181*i/self.n_sq + 10*(self.n_sq-i)/self.n_sq)
                 ) for i in range(self.n_sq)
-            ] + \
-            [
+            ] + [
                 (
                     int(225*i/self.n_hex + 227*(self.n_hex-i)/self.n_hex),
                     int(225*i/self.n_hex + 138*(self.n_hex-i)/self.n_hex),
                     int(9*i/self.n_hex + 10*(self.n_hex-i)/self.n_hex)
                 ) for i in range(self.n_hex)
-            ]   + \
+            ]  + \
                 [(221,157,9)]*self.n_circs + \
                 [(234,217,0)]*self.n_mtris + \
                 [(0,242,255)]*self.n_pents
