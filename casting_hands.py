@@ -10,7 +10,7 @@ from abc import ABC
 
 from utils.detector_utils import YoloTorchDetector
 from utils.hand_utils import Event, Observable
-
+from utils.pattern_utils import FrameSqeuence, PerlinComplexShape
 from utils.effect_utils import (
     HaSEffect,
     SpellEffect,
@@ -30,30 +30,45 @@ class Announcer(Observable):
         self.detection = Event()
         self.resolution = Event()
 
-    def announce(self, frame, detections):
+    def announce(
+        self, 
+        frame: np.ndarray, 
+        detections: List[List[Union[int,float]]]
+    ) -> None:
         for x1,y1,x2,y2,prob,clss in detections:
             self.detection(frame, clss, (x1,y1), (x2,y2))
 
-    def resolve(self, frame):
+    def resolve(self, frame: np.ndarray) -> None:
         self.resolution(frame)
 
 
 class Triggerer(ABC):
-    def __init__(self, clss, effector, announcer):
+    def __init__(
+        self, 
+        clss: int, 
+        effector: Union[PerlinComplexShape, FrameSqeuence], 
+        announcer: Announcer
+    ):
         self.clss = clss
         self.effector = effector
         self.announcer = announcer
         self.announcer.detection.append(self.register)
         self.announcer.resolution.append(self.resolve)
 
-    def register(self, frame, clss, pt1, pt2):
+    def register(
+        self, 
+        frame: np.ndarray, 
+        clss: int, 
+        pt1: Tuple[int,int], 
+        pt2: Tuple[int,int]
+    ) -> None:
         """
         will be called for each detection 
         with class probability above threshold 
         """
         pass
 
-    def resolve(self, frame):
+    def resolve(self, frame: np.ndarray) -> None:
         """
         will be called once for each frame
         after all detections have been announced
@@ -62,17 +77,28 @@ class Triggerer(ABC):
 
 
 class PerlinTriggerer(Triggerer):
-    def __init__(self, clss, effector, announcer):
+    def __init__(
+        self, 
+        clss: int, 
+        effector: PerlinComplexShape, 
+        announcer: Announcer
+    ):
         super().__init__(clss, effector, announcer)
 
-    def register(self, frame, clss, pt1, pt2):
+    def register(
+        self, 
+        frame: np.ndarray, 
+        clss: int, 
+        pt1: Tuple[int,int], 
+        pt2: Tuple[int,int]
+    ) -> None:
         # we want to draw the effect as soon as it is detected
         if clss == self.clss:
             self.effector.translate(pt1, pt2)
             self.effector.scale(pt1, pt2)
             self.effector.draw(frame)
 
-    def resolve(self, frame):
+    def resolve(self, frame: np.ndarray) -> None:
         self.effector.next()
 
 class SequenceTriggerer(Triggerer):
@@ -83,7 +109,14 @@ class SequenceTriggerer(Triggerer):
     if more than a `que_threshold` frames of the 
     last `que_len` frames had some trigger detected
     """
-    def __init__(self, clss, effector, announcer, que_len=10, que_threshold=5):
+    def __init__(
+        self, 
+        clss: int, 
+        effector: FrameSqeuence, 
+        announcer: Announcer, 
+        que_len: int = 10, 
+        que_threshold: int = 5
+    ):
         super().__init__(clss, effector, announcer)
 
         self.que = [False] * que_len
@@ -93,7 +126,13 @@ class SequenceTriggerer(Triggerer):
         self.pt1 = (None,None)
         self.pt2 = (None,None)
 
-    def register(self, frame, clss, pt1, pt2):
+    def register(
+        self, 
+        frame: np.ndarray, 
+        clss: int, 
+        pt1: Tuple[int,int], 
+        pt2: Tuple[int,int]
+    ) -> None:
         """
         we only want to check if class was detected
         anywhere on the current frame, which is the same as
@@ -105,7 +144,7 @@ class SequenceTriggerer(Triggerer):
             self.pt1 = pt1
             self.pt2 = pt2
 
-    def resolve(self, frame):
+    def resolve(self, frame: np.ndarray) -> None:
         """
         maybe start a new sequence or continue the ongoing one
         """
@@ -124,7 +163,7 @@ class SequenceTriggerer(Triggerer):
         self.pt2 = (None,None)
 
 
-def adjust_frame(frame, tar_sz):
+def adjust_frame(frame: np.ndarray, tar_sz: Tuple[int,int]):
     frame = cv.resize(frame, tar_sz)
     frame = cv.flip(frame, 1)
     return frame
