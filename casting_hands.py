@@ -6,11 +6,12 @@ import cv2 as cv
 import numpy as np
 import time
 
+from abc import ABC
+
 from utils.effect_utils import (
     HaSEffect,
     SpellEffect,
     KaboomEffect,
-    KaboomPatternEffect, 
     LightningPatternEffect
 )
 
@@ -36,14 +37,48 @@ class Announcer(Observable):
     def resolve(self, frame):
         self.resolution(frame)
 
-class KaboomTriggerer:
-    def __init__(self, clss, kaboom, announcer, que_len=10, que_threshold=5):
+
+class Triggerer(ABC):
+    def __init__(self, clss, effector, announcer):
         self.clss = clss
-        self.kaboom = kaboom # should inherit from `FrameSequence`
+        self.effector = effector
         self.announcer = announcer
         self.announcer.detection.append(self.register)
         self.announcer.resolution.append(self.resolve)
-        
+
+    def register(self, frame, clss, pt1, pt2):
+        """
+        will be called for each detection 
+        with class probability above threshold 
+        """
+        pass
+
+    def resolve(self, frame):
+        """
+        will be called once for each frame
+        after all detections have been announced
+        """
+        pass
+
+
+class PerlinTriggerer(Triggerer):
+    def __init__(self, clss, effector, announcer):
+        super().__init__(clss, effector, announcer)
+
+    def register(self, frame, clss, pt1, pt2):
+        # we want to draw the effect as soon as it is detected
+        if clss == self.clss:
+            self.effector.translate(pt1, pt2)
+            self.effector.scale(pt1, pt2)
+            self.effector.draw(frame)
+
+    def resolve(self, frame):
+        self.effector.next()
+
+class KaboomTriggerer(Triggerer):
+    def __init__(self, clss, effector, announcer, que_len=10, que_threshold=5):
+        super().__init__(clss, effector, announcer)
+
         self.que = [False] * que_len
         self.que_threshold = que_threshold
         self.curr_detected = False
@@ -63,9 +98,9 @@ class KaboomTriggerer:
         self.que.append(self.curr_detected)
 
         # maybe draw if detected or animation is ongoing
-        if sum(self.que) >= self.que_threshold or self.kaboom.isongoing:
-            self.kaboom.maybe_begin()
-            self.kaboom.maybe_draw(frame, self.pt1, self.pt2)
+        if sum(self.que) >= self.que_threshold or self.effector.isongoing:
+            self.effector.maybe_begin()
+            self.effector.maybe_draw(frame, self.pt1, self.pt2)
 
         # reset
         self.curr_detected = False
@@ -87,31 +122,31 @@ def draw_effects(frame, detections, classes):
     jutsu_pt1, jutsu_pt2 = (None,None), (None,None) #TODO: make explosion appear from the center of the box
     lightning_pt1, lightning_pt2 = (None,None), (None,None)
     
-    spell.next()
-    has.next()
+    #spell.next()
+    #has.next()
     for x1,y1,x2,y2,prob,clss in detections:
 
-        # Recall: class indices start from 1 (0 is reserved for background)
-        if classes[clss] == "hand":            
-            spell.translate((x1,y1), (x2,y2))
-            spell.scale((x1,y1), (x2,y2))
-            spell.draw(frame)
+        # # Recall: class indices start from 1 (0 is reserved for background)
+        # if classes[clss] == "hand":            
+        #     spell.translate((x1,y1), (x2,y2))
+        #     spell.scale((x1,y1), (x2,y2))
+        #     spell.draw(frame)
         
-        elif classes[clss] == "fist":            
-            has.translate((x1,y1), (x2,y2))
-            has.scale((x1,y1), (x2,y2))
-            has.draw(frame)         
+        # elif classes[clss] == "fist":            
+        #     has.translate((x1,y1), (x2,y2))
+        #     has.scale((x1,y1), (x2,y2))
+        #     has.draw(frame)         
         
-        elif classes[clss] == "teleportation_jutsu":
-            # we can't afford many false-positives for teleportation_jutsu
-            # as each detection would trigger 20-frames-long uninterruptible animation;
-            # so let's store bollean `jutsu_detected` over the last 10 frames
-            # and show the animation only if 5/10 frames had `jutsu_detected=True`
-            #(this is resolved in JutsuPatternEffect.draw_pattern())
-            jutsu_detected = True
-            jutsu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)
+        # elif classes[clss] == "teleportation_jutsu":
+        #     # we can't afford many false-positives for teleportation_jutsu
+        #     # as each detection would trigger 20-frames-long uninterruptible animation;
+        #     # so let's store bollean `jutsu_detected` over the last 10 frames
+        #     # and show the animation only if 5/10 frames had `jutsu_detected=True`
+        #     #(this is resolved in JutsuPatternEffect.draw_pattern())
+        #     jutsu_detected = True
+        #     jutsu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)
         
-        elif classes[clss]  == "horns":
+        if classes[clss]  == "horns":
             lightning_detected = True
             lightning_pt1, lightning_pt2 = (x1,y1), (x2,y2)
     
@@ -137,7 +172,7 @@ def main():
         DETECTOR_YAML, 
         DETECTOR_DICT, 
         class_dict = {
-            i: name for i, name in enumerate(classes, start=1)
+            i: name for i, name in enumerate(classes)
         },
         device=DEVICE, 
         half=half
@@ -189,12 +224,10 @@ if __name__ == "__main__":
     # define class effects
     announcer = Announcer()
 
-    has = HaSEffect()
-    spell = SpellEffect()
-    kaboom = KaboomPatternEffect()
-    kaboom1 = KaboomEffect()
     lightning = LightningPatternEffect()  
 
+    PerlinTriggerer(0, HaSEffect(), announcer)
+    PerlinTriggerer(1, SpellEffect(), announcer)
     KaboomTriggerer(3, KaboomEffect(), announcer)
 
     main()
