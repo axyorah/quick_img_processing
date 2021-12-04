@@ -182,21 +182,21 @@ class FrameSqeuence:
         if self._ongoingframe >= len(self.frames):
             self._isongoing = False
             self._ongoingframe = 0
-            return 
+            return
 
-        kaboom = self.frames[self._ongoingframe]
+        effect = self.frames[self._ongoingframe]
         mask = (
             self.masks[self._ongoingframe] if self.masks
             else 255 * np.ones(frame.shape[:2], dtype=int)
         )
-
+        
         fadedegree = max(
             0, 
             self.fade - (len(self.frames) - self._ongoingframe) + 1
         ) / self.fade 
 
         combined = frame.copy()
-        cv.copyTo(kaboom, mask, combined)
+        cv.copyTo(effect, mask, combined)
         cv.addWeighted(
             combined, 1 - fadedegree, frame, fadedegree, 0, frame
         )
