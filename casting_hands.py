@@ -9,17 +9,70 @@ import time
 from utils.effect_utils import (
     HaSEffect,
     SpellEffect,
+    KaboomEffect,
     KaboomPatternEffect, 
     LightningPatternEffect
 )
 
 from utils.detector_utils import YoloTorchDetector
+from utils.hand_utils import Event, Observable
+
 
 DETECTOR_DICT = "./dnn/yolov5_gesture_state_dict.pt"
 DETECTOR_YAML = "./dnn/yolov5s.yaml"
 IMGSZ = 448
 DEVICE = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 HALF = False
+
+class Announcer(Observable):
+    def __init__(self):
+        self.detection = Event()
+        self.resolution = Event()
+
+    def announce(self, frame, detections):
+        for x1,y1,x2,y2,prob,clss in detections:
+            self.detection(frame, clss, (x1,y1), (x2,y2))
+
+    def resolve(self, frame):
+        self.resolution(frame)
+
+class KaboomTriggerer:
+    def __init__(self, clss, kaboom, announcer, que_len=10, que_threshold=5):
+        self.clss = clss
+        self.kaboom = kaboom # should inherit from `FrameSequence`
+        self.announcer = announcer
+        self.announcer.detection.append(self.register)
+        self.announcer.resolution.append(self.resolve)
+        
+        self.que = [False] * que_len
+        self.que_threshold = que_threshold
+        self.curr_detected = False
+
+        self.pt1 = (None,None)
+        self.pt2 = (None,None)
+
+    def register(self, frame, clss, pt1, pt2):
+        if clss == self.clss and not self.curr_detected:
+            self.curr_detected = True
+            self.pt1 = pt1
+            self.pt2 = pt2
+
+    def resolve(self, frame):
+        # always update que
+        self.que.pop(0)
+        self.que.append(self.curr_detected)
+
+        # maybe draw if detected or animation is ongoing
+        if sum(self.que) >= self.que_threshold or self.kaboom.isongoing:
+            self.kaboom.maybe_begin()
+            self.kaboom.maybe_draw(frame, self.pt1, self.pt2)
+
+        # reset
+        self.curr_detected = False
+        self.pt1 = (None,None)
+        self.pt2 = (None,None)
+
+
 
 
 def adjust_frame(frame, tar_sz):
@@ -34,17 +87,17 @@ def draw_effects(frame, detections, classes):
     jutsu_pt1, jutsu_pt2 = (None,None), (None,None) #TODO: make explosion appear from the center of the box
     lightning_pt1, lightning_pt2 = (None,None), (None,None)
     
+    spell.next()
+    has.next()
     for x1,y1,x2,y2,prob,clss in detections:
 
         # Recall: class indices start from 1 (0 is reserved for background)
-        if classes[clss] == "hand":
-            spell.next()
+        if classes[clss] == "hand":            
             spell.translate((x1,y1), (x2,y2))
             spell.scale((x1,y1), (x2,y2))
             spell.draw(frame)
         
-        elif classes[clss] == "fist":
-            has.next()
+        elif classes[clss] == "fist":            
             has.translate((x1,y1), (x2,y2))
             has.scale((x1,y1), (x2,y2))
             has.draw(frame)         
@@ -62,9 +115,9 @@ def draw_effects(frame, detections, classes):
             lightning_detected = True
             lightning_pt1, lightning_pt2 = (x1,y1), (x2,y2)
     
-    kaboom.draw_pattern(
-        frame, jutsu_detected, jutsu_pt1, jutsu_pt2
-    )
+    # kaboom.draw_pattern(
+    #    frame, jutsu_detected, jutsu_pt1, jutsu_pt2
+    # )
 
     lightning.draw_pattern(
         frame, lightning_detected, lightning_pt1, lightning_pt2
@@ -113,12 +166,15 @@ def main():
         # get detections for current frame
         detections = detector.detect(
             input_tensor, 
-            threshold=0.75,
+            threshold=0.6,
             sz=frame.shape[:2]
         )
 
         # check detections and draw corresponding effects
-        draw_effects(frame, detections, classes)        
+        draw_effects(frame, detections, classes)
+
+        announcer.announce(frame, detections)
+        announcer.resolve(frame)
         
         # display 
         cv.imshow("press `q` to quit", frame)
@@ -131,9 +187,14 @@ def main():
 
 if __name__ == "__main__":
     # define class effects
+    announcer = Announcer()
+
     has = HaSEffect()
     spell = SpellEffect()
-    kaboom = KaboomPatternEffect()   
+    kaboom = KaboomPatternEffect()
+    kaboom1 = KaboomEffect()
     lightning = LightningPatternEffect()  
+
+    KaboomTriggerer(3, KaboomEffect(), announcer)
 
     main()
