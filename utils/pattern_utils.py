@@ -3,6 +3,7 @@ from typing import List, Tuple, Dict, Set, Optional, Union
 import os
 import cv2 as cv
 import numpy as np
+from numpy.lib.twodim_base import mask_indices
 
 if __name__ == "__main__":
     from perlin_flow import PerlinFlow
@@ -142,6 +143,67 @@ class PerlinComplexShape:
     def draw(self, frame):
         for child in self.children:
             cv.fillPoly(frame, [child.vertices.astype(int)], (0,0,255))
+
+
+class FrameSqeuence:
+    PATH_FRAMES_DIR = ''
+    def __init__(self):
+        self._isongoing = False
+        self._ongoingframe = 0
+        self.frames = []
+        self.masks = []
+        self.fade = 5 # num frames that gradually fade at the end
+
+    def load(self):
+        for name in os.listdir(self.PATH_FRAMES_DIR):
+            fname = os.path.join(self.PATH_FRAMES_DIR, name)
+            if not os.path.isfile(fname):
+                continue
+
+            combined = cv.imread(fname, cv.IMREAD_UNCHANGED)
+            self.frames.append(combined[:,:,:3])
+            if combined.shape[2] > 3:
+                self.masks.append(combined[:,:,3])
+
+    @property
+    def isongoing(self):
+        return self._isongoing
+
+    def maybe_begin(self):
+        if self.isongoing:
+            return
+        else:
+            self._isongoing = True
+            self._ongoingframe = 0
+
+    def maybe_draw(self, frame):
+        if not self.isongoing:
+            return
+        if self._ongoingframe >= len(self.frames):
+            self._isongoing = False
+            self._ongoingframe = 0
+            return 
+
+        frame = self.frames[self._ongoingframe]
+        mask = (
+            self.masks[self._ongoingframe] if self.masks
+            else 255 * np.ones(frame.shape[:2], dtype=int)
+        )
+
+        fadedegree = max(
+            0, 
+            self.fade - (len(self.frames) - self._ongoingframe) + 1
+        ) / self.fade 
+
+        combined = frame.copy()
+        cv.copyTo(frame, mask, combined)
+        cv.addWeighted(
+            combined, 1 - fadedegree, frame, fadedegree, 0, frame
+        )
+
+        self._ongoingframe += 1
+
+        
 
 
 

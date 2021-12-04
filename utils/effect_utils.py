@@ -3,6 +3,7 @@ import os
 import cv2 as cv
 import numpy as np
 
+
 if __name__ == "__main__":
     from perlin_flow import PerlinFlow
     from pattern_utils import (
@@ -11,7 +12,8 @@ if __name__ == "__main__":
         Shape,
         Poly,
         PerlinShape, 
-        PerlinComplexShape
+        PerlinComplexShape,
+        FrameSqeuence
     )
 else:
     from utils.perlin_flow import PerlinFlow
@@ -21,7 +23,8 @@ else:
         Shape,
         Poly,
         PerlinShape, 
-        PerlinComplexShape
+        PerlinComplexShape,
+        FrameSqeuence
     )
 
 
@@ -210,7 +213,13 @@ class SpellEffect(PerlinComplexShape):
             )
 
 
-
+class KaboomEffect(FrameSqeuence):
+    PATH_FRAMES_DIR = (
+        os.path.join("imgs", "kaboom") if os.path.isdir("imgs")
+        else os.path.join("..", "imgs", "kaboom")
+    )
+    def __init__(self):
+        super().__init__()
 
 
             
