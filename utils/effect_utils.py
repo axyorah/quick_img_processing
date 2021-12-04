@@ -220,6 +220,7 @@ class KaboomEffect(FrameSqeuence):
     )
     def __init__(self):
         super().__init__()
+        self.load()
 
 
             
@@ -401,9 +402,9 @@ if __name__ == '__main__':
     cv.imwrite(DUMMY_PATH, img)
     img = cv.imread(DUMMY_PATH) # now it's cv::UMat
 
-    spell = SpellPatternEffect()
+    spell = SpellEffect()
     pt1, pt2 = (w//2-rad, h//2-rad), (w//2+rad, h//2+rad)
-    spell.draw_pattern(img, pt1, pt2)
+    spell.draw(img, pt1, pt2)
 
     cv.imshow("press 'q' to quit", img)
     key = cv.waitKey(5000)
