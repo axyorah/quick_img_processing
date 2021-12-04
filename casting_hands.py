@@ -5,6 +5,7 @@ import torch
 import cv2 as cv
 import numpy as np
 import time
+import argparse
 
 from abc import ABC
 
@@ -23,6 +24,26 @@ DETECTOR_DICT = "./dnn/yolov5_gesture_state_dict.pt"
 DETECTOR_YAML = "./dnn/yolov5s.yaml"
 DEVICE = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 HALF = False
+
+
+def get_args() -> Dict:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "-t", '--threshold', type=float, default=0.7,
+        help=(
+            "probability threshold for gesture detector; "
+            "by default set to `0.7`; decrease if detector "
+            "has difficulties detecting your gestures "
+            "(e.g., because of bad lighting conditions)"
+        )
+    )
+
+    args = vars(parser.parse_args())
+    args["threshold"] = float(args["threshold"])
+
+    return args
+
 
 
 class Announcer(Observable):
@@ -170,6 +191,9 @@ def adjust_frame(frame: np.ndarray, tar_sz: Tuple[int,int]):
 
 
 def main():
+    # collect command line arguments
+    args = get_args()
+
     # adjust float precision: if no cuda - alawys use float32 instead of float16/float32
     half = False if DEVICE.type == 'cpu' else HALF
 
@@ -220,7 +244,7 @@ def main():
         # get detections for current frame
         detections = detector.detect(
             input_tensor, 
-            threshold=0.6,
+            threshold=args["threshold"],
             sz=frame.shape[:2]
         )
 
