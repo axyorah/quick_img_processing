@@ -176,7 +176,7 @@ class FrameSqeuence:
             self._isongoing = True
             self._ongoingframe = 0
 
-    def maybe_draw(self, frame):
+    def maybe_draw(self, frame, pt1, pt2):
         if not self.isongoing:
             return
         if self._ongoingframe >= len(self.frames):
@@ -184,7 +184,7 @@ class FrameSqeuence:
             self._ongoingframe = 0
             return 
 
-        frame = self.frames[self._ongoingframe]
+        kaboom = self.frames[self._ongoingframe]
         mask = (
             self.masks[self._ongoingframe] if self.masks
             else 255 * np.ones(frame.shape[:2], dtype=int)
@@ -196,7 +196,7 @@ class FrameSqeuence:
         ) / self.fade 
 
         combined = frame.copy()
-        cv.copyTo(frame, mask, combined)
+        cv.copyTo(kaboom, mask, combined)
         cv.addWeighted(
             combined, 1 - fadedegree, frame, fadedegree, 0, frame
         )
