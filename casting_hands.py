@@ -8,22 +8,22 @@ import time
 
 from abc import ABC
 
+from utils.detector_utils import YoloTorchDetector
+from utils.hand_utils import Event, Observable
+
 from utils.effect_utils import (
     HaSEffect,
     SpellEffect,
     KaboomEffect,
-    LightningPatternEffect
+    LightningEffect
 )
-
-from utils.detector_utils import YoloTorchDetector
-from utils.hand_utils import Event, Observable
 
 
 DETECTOR_DICT = "./dnn/yolov5_gesture_state_dict.pt"
 DETECTOR_YAML = "./dnn/yolov5s.yaml"
-IMGSZ = 448
 DEVICE = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 HALF = False
+
 
 class Announcer(Observable):
     def __init__(self):
@@ -75,7 +75,14 @@ class PerlinTriggerer(Triggerer):
     def resolve(self, frame):
         self.effector.next()
 
-class KaboomTriggerer(Triggerer):
+class SequenceTriggerer(Triggerer):
+    """
+    frame sequence is long and expensive,
+    so we want to minimize false pos as much as possible;
+    therefore, sequence effect will only be triggered
+    if more than a `que_threshold` frames of the 
+    last `que_len` frames had some trigger detected
+    """
     def __init__(self, clss, effector, announcer, que_len=10, que_threshold=5):
         super().__init__(clss, effector, announcer)
 
@@ -87,12 +94,21 @@ class KaboomTriggerer(Triggerer):
         self.pt2 = (None,None)
 
     def register(self, frame, clss, pt1, pt2):
+        """
+        we only want to check if class was detected
+        anywhere on the current frame, which is the same as
+        any of the detections corresponds to `this` class;
+        we just record it, but don't do anything about it yet
+        """
         if clss == self.clss and not self.curr_detected:
             self.curr_detected = True
             self.pt1 = pt1
             self.pt2 = pt2
 
     def resolve(self, frame):
+        """
+        maybe start a new sequence or continue the ongoing one
+        """
         # always update que
         self.que.pop(0)
         self.que.append(self.curr_detected)
@@ -108,55 +124,10 @@ class KaboomTriggerer(Triggerer):
         self.pt2 = (None,None)
 
 
-
-
 def adjust_frame(frame, tar_sz):
     frame = cv.resize(frame, tar_sz)
     frame = cv.flip(frame, 1)
     return frame
-
-def draw_effects(frame, detections, classes):
-    h,w = frame.shape[:2]
-
-    jutsu_detected, lightning_detected = False, False
-    jutsu_pt1, jutsu_pt2 = (None,None), (None,None) #TODO: make explosion appear from the center of the box
-    lightning_pt1, lightning_pt2 = (None,None), (None,None)
-    
-    #spell.next()
-    #has.next()
-    for x1,y1,x2,y2,prob,clss in detections:
-
-        # # Recall: class indices start from 1 (0 is reserved for background)
-        # if classes[clss] == "hand":            
-        #     spell.translate((x1,y1), (x2,y2))
-        #     spell.scale((x1,y1), (x2,y2))
-        #     spell.draw(frame)
-        
-        # elif classes[clss] == "fist":            
-        #     has.translate((x1,y1), (x2,y2))
-        #     has.scale((x1,y1), (x2,y2))
-        #     has.draw(frame)         
-        
-        # elif classes[clss] == "teleportation_jutsu":
-        #     # we can't afford many false-positives for teleportation_jutsu
-        #     # as each detection would trigger 20-frames-long uninterruptible animation;
-        #     # so let's store bollean `jutsu_detected` over the last 10 frames
-        #     # and show the animation only if 5/10 frames had `jutsu_detected=True`
-        #     #(this is resolved in JutsuPatternEffect.draw_pattern())
-        #     jutsu_detected = True
-        #     jutsu_pt1, jutsu_pt2 = (x1,y1), (x2,y2)
-        
-        if classes[clss]  == "horns":
-            lightning_detected = True
-            lightning_pt1, lightning_pt2 = (x1,y1), (x2,y2)
-    
-    # kaboom.draw_pattern(
-    #    frame, jutsu_detected, jutsu_pt1, jutsu_pt2
-    # )
-
-    lightning.draw_pattern(
-        frame, lightning_detected, lightning_pt1, lightning_pt2
-    )
 
 
 def main():
@@ -167,7 +138,7 @@ def main():
         'fist', 'hand', 'horns', 'teleportation_jutsu', 'tori_sign'
     ]
 
-    # load model
+    # load detector
     detector = YoloTorchDetector(
         DETECTOR_YAML, 
         DETECTOR_DICT, 
@@ -177,7 +148,16 @@ def main():
         device=DEVICE, 
         half=half
     )
-    
+
+
+    # get effect triggerers that observer `Announcer``
+    announcer = Announcer()
+
+    PerlinTriggerer(0, HaSEffect(), announcer)
+    PerlinTriggerer(1, SpellEffect(), announcer)
+    SequenceTriggerer(2, LightningEffect(), announcer)
+    SequenceTriggerer(3, KaboomEffect(), announcer)
+
 
     # start video capture
     cv.namedWindow("frame")
@@ -206,8 +186,6 @@ def main():
         )
 
         # check detections and draw corresponding effects
-        draw_effects(frame, detections, classes)
-
         announcer.announce(frame, detections)
         announcer.resolve(frame)
         
@@ -221,13 +199,4 @@ def main():
     cv.destroyAllWindows()
 
 if __name__ == "__main__":
-    # define class effects
-    announcer = Announcer()
-
-    lightning = LightningPatternEffect()  
-
-    PerlinTriggerer(0, HaSEffect(), announcer)
-    PerlinTriggerer(1, SpellEffect(), announcer)
-    KaboomTriggerer(3, KaboomEffect(), announcer)
-
     main()
