@@ -18,7 +18,7 @@ Here's a brief description of the available projects.
             <br>
             <br>
             Everyone is better off with a tentacle beard!<br>
-            Run `tentacle_beard.py` to capture a video stream from your machine's camera 
+            Run <code>tentacle_beard.py</code> to capture a video stream from your machine's camera 
             and give any human-ish individual caught by the camera a fresh new look!
             <br>
             <ul>
@@ -149,16 +149,16 @@ Here's a brief description of the available projects.
                 </li>
                 <li> <b>Pattern Effects</b>
                     <ul>
-                        <li> Open Palm effect is made from several individually rotating polygons. The rotation angle for each polygon is sampled from Perlin matrix. Check the code at <code>utils.pattern_utils.Pattern</code>, <code>utils.pattern_utils.Polygon</code> and <code>utils.pattern_utils.HandPatternEffect</code>. (I will probably add a more detailed description at some point in the future)
+                        <li> Spell effect is made from several individually rotating polygons. The rotation angle for each polygon is sampled from Perlin matrix. Check <code>Shape</code>, <code>Poly</code> and <code>PerlinShape</code> classes in <code>utils.pattern_utils.py</code>, as well as <code>SpellEffect</code> in <code>utils.effect_utils.py</code> (I will probably add a more detailed description at some point in the future)
                         </li>
-                        <li> Fist effect is similar to Open Palm effect, just instead of polygons it uses precalculated vertices. On each frame the pattern for fist effect rotates around its center about the angle sampled from Perlin matrix.
-                        Check the code at <code>utils.pattern_utils.FistPatternEffect</code>.
+                        <li> Hammer effect is similar to Spell effect, just instead of polygons it uses precalculated vertices. On each frame the pattern for hammer effect rotates around its center about the angle sampled from Perlin matrix.
+                        Check <code>HaSEffect</code> class in <code>utils.effect_utils.py</code>.
                         </li>
                         <li> Puff of smoke for Teleportation Jutsu is made by following <a href="https://github.com/ssloy/tinykaboom">this</a> tutorial 
                         by <a href="https://github.com/ssloy">Dmitry Sokolov</a>. 
                         In short - explosion is a sphere "wrapped" into a Perlin noise with all the lights and shadows calculated with the help of a 
                         simplified ray tracer. Puffs of smoke are not calculated on the fly (that would be very computationally expensive). Instead some premade  explosion images (<code>imgs/transp_kaboomX.png</code>) are loaded at the beginning of the script and added on top of the current frame whenever 5 out of 10 last frames had teleportation jutsu detections. 
-                        Check the code at <code>utils.pattern_utils.JutsuPatternEffect</code>.
+                        Check <code>FrameSequence</code> class in <code>utils.pattern_utils.py</code>, as well as <code>KaboomEffect</code> class in <code>utils.effect_utils.py</code>.
                         </li>
                     </ul>
                 </li>
