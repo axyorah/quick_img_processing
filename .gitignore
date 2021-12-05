@@ -4,3 +4,5 @@ train/dataset*
 archive
 notes.txt
 venv
+.metals/
+.vscode/
