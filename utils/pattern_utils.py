@@ -18,29 +18,108 @@ def rotate(vecs: np.ndarray, angle: float):
         angle: float: rotation angle in radians
     """
     return np.dot(
-        vecs, 
         np.array([
             [np.cos(angle), np.cos(np.pi/2 + angle)],
             [np.sin(angle), np.sin(np.pi/2 + angle)]
-        ])
-    )
+        ]),        
+        vecs.T
+    ).T
 
 class Shape:
-    def __init__(self, vertices):
+    """
+    simple geometrical shepe given by a list of vertices 
+    as (x,y) coordinates or (N,2)-ndarary;
+    vertices are assumed to be given in **relative** coordinates - 
+    relative to the center of rotation;
+    shape can be translated, uniformely scale and rotated;
+    do note that translation is not appied directly
+    but calculated on the fly when you request vertices;
+    because of that if want your shape to rotate around
+    different center you need to use slightely convoluted syntax:
+
+    Suppose, you have the following square shape with side = 2:
+    ```
+    >>> sq = Shape([
+        [ 1, 1],
+        [ 1,-1],
+        [-1,-1],
+        [-1, 1],
+        [ 1, 1]
+    ])
+    ```
+
+    It's centered at (0,0), and if you apply 60 deg rotation
+    you get:
+    ```
+    >>> sq.rotate(np.pi / 3)
+    >>> sq.vertices
+    array([[-0.3660254,  1.3660254],
+           [ 1.3660254,  0.3660254],
+           [ 0.3660254, -1.3660254],
+           [-1.3660254, -0.3660254],
+           [-0.3660254,  1.3660254]])
+    ```
+    No surprises here.
+
+    Now, suppose, you want to rotate the square around the point 
+    external to it, e.g., (-1,0). The correct way of doing it
+    is as follows:
+    ```
+    >>> sq.translate([1,0])     # this moves the shape center
+    >>> sq = Shape(sq.vertices) # this creates new shape with external rotation center
+    >>> sq.rotate(np.pi / 3)    # new shape is rotated around (0,0)
+    >>> sq.translate([-1,0])    # move rotation center back to (-1,0)
+    >>> sq.vertices
+    array([[-0.8660254 ,  2.23205081],
+           [ 0.8660254 ,  1.23205081],
+           [-0.1339746 , -0.5       ],
+           [-1.8660254 ,  0.5       ],
+           [-0.8660254 ,  2.23205081]])
+    ```
+
+    Here's a more streamlined way of doing the same:
+    ```
+    >>> vertices = [
+        [ 1, 1],
+        [ 1,-1],
+        [-1,-1],
+        [-1, 1],
+        [ 1, 1]
+    ]
+
+    >>> sq = Shape(
+        Shape(vertices)\
+            .translate([ 1, 0 ])\
+            .vertices
+    )\
+        .rotate( np.pi / 3 )\
+        .translate( [-1, 0] )
+
+    >>> sq.vertices
+    array([[-0.8660254 ,  2.23205081],
+           [ 0.8660254 ,  1.23205081],
+           [-0.1339746 , -0.5       ],
+           [-1.8660254 ,  0.5       ],
+           [-0.8660254 ,  2.23205081]])
+    ```
+    """
+    def __init__(self, vertices: Union[np.ndarray,List[List[float]]]):
         self._center = np.array([[0, 0]], dtype=float)
         self._vertices = np.array(vertices).reshape(-1,2)
         self._dist0 = self._get_avg_dist_from_center()
         self._scale0 = 1
         
-    def _get_avg_dist_from_center(self):
+    def _get_avg_dist_from_center(self) -> float:
         self._dist = np.linalg.norm(self._vertices, axis=1).mean()
         return self._dist        
         
-    def translate(self, vec):
+    def translate(self, vec: Union[np.ndarray,List[float]]) -> 'Shape':
+        """move shape in a direction specified by `vec` (x,y coord)"""
         self._center += np.array(vec, dtype=float).reshape(-1, 2)
         return self
     
-    def scale(self, scalar, absolute=True):
+    def scale(self, scalar: float, absolute: bool = True) -> 'Shape':
+        """scale by a `scalar` in all dimensions"""
         if absolute:
             coeff = self._dist0 / self._get_avg_dist_from_center()
         else:
@@ -48,23 +127,24 @@ class Shape:
         self._vertices *= (scalar * coeff)
         return self
     
-    def rotate(self, angle):
+    def rotate(self, angle: float) -> 'Shape':
+        """rotate shape around the angle [radians]"""
         self._vertices = rotate(self._vertices, angle)
         return self
     
     @property
-    def vertices(self):
+    def vertices(self) -> np.ndarray:
         return self._vertices + self._center
 
 
 class Poly(Shape):
-    def __init__(self, num_vertices, angle=None):
+    def __init__(self, num_vertices: int, angle: float = None):
         self.num_vertices = num_vertices
         self.angle = angle
         self._get_init_vertices()            
         super().__init__( self._vertices )
 
-    def _get_init_vertices(self):
+    def _get_init_vertices(self) -> np.ndarray:
         angle = self.angle or 2*np.pi/self.num_vertices
         angles = [
             angle * i for i in range(self.num_vertices + 1)
@@ -79,7 +159,13 @@ class Poly(Shape):
 
 
 class PerlinShape(Shape):
-    def __init__(self, vertices, perlin=None, perlin_modifier=1, perlin_row_idx=None):
+    def __init__(
+        self, 
+        vertices: Union[np.ndarray,List[List[float]]], 
+        perlin: Optional[np.ndarray] = None, 
+        perlin_modifier: int = 1, 
+        perlin_row_idx: Optional[int] = None
+    ):
         super().__init__(vertices)
         self.perlin = perlin if perlin is not None else PerlinFlow().get_perlin()
         self.perlin_modifier = perlin_modifier
@@ -89,7 +175,12 @@ class PerlinShape(Shape):
             else np.random.choice(self.perlin.shape[0])
         ) 
         
-    def next(self):
+    def next(self) -> 'PerlinShape':
+        """
+        select next column in perlin matrix (perlin_col_idx += 1)
+        and rotate by the angle corresponding to
+        `perlin_matrix[perlin_row_idx][perlin_col_idx]`
+        """
         self.perlin_col_idx += 1
         self.perlin_col_idx %= self.perlin.shape[1]
 
@@ -103,11 +194,15 @@ class PerlinShape(Shape):
 
 
 class PerlinComplexShape:
-    def __init__(self, perlin=None):
+    def __init__(self, perlin: Optional[np.ndarray] = None):
         self.perlin = perlin if perlin is not None else PerlinFlow().get_perlin()
         self.children = [] # each child is `PerlinShape` with `next()` method
 
-    def translate(self, pt1, pt2):
+    def translate(
+        self, 
+        pt1: Tuple[int,int], 
+        pt2: Tuple[int,int]
+    ) -> 'PerlinComplexShape':
         """translate into the center of the box between pt1 and pt2"""
         x1,y1 = pt1
         x2,y2 = pt2
@@ -119,7 +214,12 @@ class PerlinComplexShape:
 
         return self
     
-    def scale(self, pt1, pt2):
+    def scale(
+        self, 
+        pt1: Tuple[int,int], 
+        pt2: Tuple[int,int]
+    ) -> 'PerlinComplexShape':
+        """scale to fit max dimension of the boxe given by pt1 and pt2"""
         x1,y1 = pt1
         x2,y2 = pt2
         
@@ -130,17 +230,22 @@ class PerlinComplexShape:
 
         return self
     
-    def next(self):
+    def next(self) -> 'PerlinComplexShape':
+        """
+        select next column in perlin matrix (perlin_col_idx += 1)
+        and rotate by the angle corresponding to
+        `perlin_matrix[perlin_row_idx][perlin_col_idx]`
+        """
         for child in self.children:
             child.next()
 
         return self
     
     @property
-    def vertices(self):
+    def vertices(self) -> List[np.ndarray]:
         return [child.vertices for child in self.children]
 
-    def draw(self, frame):
+    def draw(self, frame: np.ndarray) -> None:
         for child in self.children:
             cv.fillPoly(frame, [child.vertices.astype(int)], (0,0,255))
 
@@ -154,7 +259,10 @@ class FrameSqeuence:
         self.masks = []
         self.fade = 5 # num frames that gradually fade at the end
 
-    def load(self):
+    def load(self) -> None:
+        """
+        load image files from dir specified by `PATH_FRAMES_DIR`
+        """
         for name in os.listdir(self.PATH_FRAMES_DIR):
             fname = os.path.join(self.PATH_FRAMES_DIR, name)
             if not os.path.isfile(fname):
@@ -166,17 +274,32 @@ class FrameSqeuence:
                 self.masks.append(combined[:,:,3])
 
     @property
-    def isongoing(self):
+    def isongoing(self) -> bool:
         return self._isongoing
 
-    def maybe_begin(self):
+    def maybe_begin(self) -> None:
+        """
+        set `isongoing` flag to True and reset the frame counter
+        IF frame sequence is not already ongoing
+        """
         if self.isongoing:
             return
         else:
             self._isongoing = True
             self._ongoingframe = 0
 
-    def maybe_draw(self, frame, pt1, pt2):
+    def maybe_draw(
+        self, 
+        frame: np.ndarray, 
+        pt1: Optional[Tuple[float,float]], 
+        pt2: Optional[Tuple[float,float]]
+    ) -> None:
+        """
+        draw current sequence frame on provided image `frame`
+        IF there's an ongoing sequence;
+        you always want to call `maybe_begin()` 
+        right before `maybe_draw(.)`
+        """
         if not self.isongoing:
             return
         if self._ongoingframe >= len(self.frames):
@@ -203,140 +326,3 @@ class FrameSqeuence:
 
         self._ongoingframe += 1
 
-        
-
-
-
-
-
-
-
-
-
-
-    
-class Pattern:
-    def __init__(
-        self, 
-        vertices: np.ndarray, 
-        center: Union[List,np.ndarray], 
-        dist_from_center: float = 0,
-        perlin: Optional[np.ndarray] = None,
-        perlin_idx: int = 0
-    ):
-        self.vertices = vertices # (N,2), for closed figures 1st and last rows are the same
-        self.center = np.array(center) # coordinates of center [y,x]
-        self.delta_center = np.array([[0,0]]) # displacement of the pattern's center compared to the prev step
-                
-        self.dist = dist_from_center        
-        self.c2p = np.array([0,1]) * self.dist # center-to-point vector
-        self.shift_vertices() 
-        self.initialize_dists() # should follow `shift_vertices` (because of c2p)
-        
-        self.frame = 0
-        if perlin is not None:
-            self.perlin = perlin
-        else:
-            pf = PerlinFlow()
-            self.perlin = pf.get_perlin()
-        self.perlin_idx = perlin_idx
-        
-    def shift_vertices(self):
-        self.vertices = self.vertices + self.center + self.c2p
-        
-    def initialize_dists(self):
-        self.dists0 = np.linalg.norm(
-            self.vertices - self.center, 
-            axis=1, 
-            keepdims=True
-        )
-        self.dists = self.dists0.copy()
-        
-    def get_center_displacement(self, center=None):
-        center = np.array(
-            center if center is not None else self.center
-        ).reshape(1,2)
-        self.delta_center = center - self.center
-        self.center = center
-        return self.delta_center
-        
-    def adjust_scale(self, scale=None):
-        if scale is not None:  
-            self.dists = np.linalg.norm(
-                self.vertices - self.center, 
-                axis=1, 
-                keepdims=True
-            )
-            scale_relative = scale * self.dists0 / self.dists
-            self.vertices = self.center + \
-                (self.vertices - self.center) * scale_relative 
-                
-        return self.vertices  
-
-    def adjust_center(self, center=None):
-        # center around the new 'center'
-        self.get_center_displacement(center=center)
-        self.vertices += self.delta_center
-        return self.vertices     
-    
-    def rotate_vertices(self, angle, center=None):
-        self.center = np.array(
-            center if center is not None else self.center
-        )
-        
-        self.vertices = rotate(
-            self.vertices-self.center, angle
-        ) + self.center
-
-        return self.vertices.astype(int)
-   
-    def update_vertices(self, center=None, scale=None):
-        self.frame += 1
-        angle = 2*np.pi/100 + \
-                1*self.perlin[
-                    self.perlin_idx, 
-                    self.frame%self.perlin.shape[1]
-                ]
-        
-        self.adjust_scale(scale=scale)
-        self.adjust_center(center=center)
-                
-        self.rotate_vertices(angle, center=center)
-        return self.vertices.astype(int)
-    
-class Polygon(Pattern):
-    def __init__(
-        self, 
-        num_vertices: int,
-        center: Union[List,np.ndarray],                        
-        rad: float,
-        dist_from_center: float = 0,
-        perlin: Optional[np.ndarray] = None,
-        perlin_idx: int = 0
-    ):        
-        super().__init__(
-            np.array([[0,0]]), # <-- ugly dummy vertices
-            center,
-            dist_from_center=dist_from_center,
-            perlin=perlin,
-            perlin_idx=perlin_idx
-        )
-        self.num_vertices = num_vertices
-        self.rad = rad
-        self.initialize_vertices() 
-        self.initialize_dists() # <-- recalculate dists, since we passed dummies before
-        
-        
-    def initialize_vertices(self, angles=None):
-        if angles is None:
-            angles = [
-                2*np.pi/self.num_vertices * i 
-                for i in range(self.num_vertices)
-            ] + [0]
-
-        self.vertices = np.concatenate([
-            rotate(np.array([[0, self.rad]]), angle)
-            for angle in angles
-        ], axis=0) + self.center + self.c2p
-        
-        return self.vertices

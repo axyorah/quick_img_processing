@@ -7,8 +7,6 @@ import numpy as np
 if __name__ == "__main__":
     from perlin_flow import PerlinFlow
     from pattern_utils import (
-        Pattern, 
-        Polygon, 
         Shape,
         Poly,
         PerlinShape, 
@@ -18,8 +16,6 @@ if __name__ == "__main__":
 else:
     from utils.perlin_flow import PerlinFlow
     from utils.pattern_utils import (
-        Pattern, 
-        Polygon, 
         Shape,
         Poly,
         PerlinShape, 
