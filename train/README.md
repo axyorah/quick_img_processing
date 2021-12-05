@@ -25,7 +25,7 @@ In short: first we'll create own hand dataset and store it in a required format,
 First, let's sort the dependencies. To use tensorflow object detection API we'll need:
 ```
 tensorflow==2.4.2
-opencv-python==4.4.0.40
+opencv-python==4.4.0.46
 argparse==1.1
 pillow
 ```
@@ -39,7 +39,7 @@ $ python -p pip install -r requiremenxt.txt
 To train PyTorch implementation of YOLOv5 as done by [ultralytics](https://github.com/ultralytics/yolov5) we'll need:
 ```
 torch==1.9.0
-opencv-python==4.4.0.40
+opencv-python==4.4.0.46
 argparse==1.1
 pillow
 ```
