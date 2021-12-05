@@ -11,7 +11,7 @@ from abc import ABC
 
 from utils.detector_utils import YoloTorchDetector
 from utils.hand_utils import Event, Observable
-from utils.pattern_utils import FrameSqeuence, PerlinComplexShape
+from utils.pattern_utils import FrameSequence, PerlinComplexShape
 from utils.effect_utils import (
     HaSEffect,
     SpellEffect,
@@ -66,7 +66,7 @@ class Triggerer(ABC):
     def __init__(
         self, 
         clss: int, 
-        effector: Union[PerlinComplexShape, FrameSqeuence], 
+        effector: Union[PerlinComplexShape, FrameSequence], 
         announcer: Announcer
     ):
         self.clss = clss
@@ -133,7 +133,7 @@ class SequenceTriggerer(Triggerer):
     def __init__(
         self, 
         clss: int, 
-        effector: FrameSqeuence, 
+        effector: FrameSequence, 
         announcer: Announcer, 
         que_len: int = 10, 
         que_threshold: int = 5

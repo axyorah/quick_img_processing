@@ -250,7 +250,7 @@ class PerlinComplexShape:
             cv.fillPoly(frame, [child.vertices.astype(int)], (0,0,255))
 
 
-class FrameSqeuence:
+class FrameSequence:
     PATH_FRAMES_DIR = ''
     def __init__(self):
         self._isongoing = False

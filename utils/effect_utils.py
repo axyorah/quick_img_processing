@@ -11,7 +11,7 @@ if __name__ == "__main__":
         Poly,
         PerlinShape, 
         PerlinComplexShape,
-        FrameSqeuence
+        FrameSequence
     )
 else:
     from utils.perlin_flow import PerlinFlow
@@ -20,7 +20,7 @@ else:
         Poly,
         PerlinShape, 
         PerlinComplexShape,
-        FrameSqeuence
+        FrameSequence
     )
 
 
@@ -209,7 +209,7 @@ class SpellEffect(PerlinComplexShape):
             )
 
 
-class KaboomEffect(FrameSqeuence):
+class KaboomEffect(FrameSequence):
     PATH_FRAMES_DIR = (
         os.path.join("imgs", "kaboom") if os.path.isdir("imgs")
         else os.path.join("..", "imgs", "kaboom")
@@ -219,7 +219,7 @@ class KaboomEffect(FrameSqeuence):
         self.load()
 
 
-class LightningEffect(FrameSqeuence):
+class LightningEffect(FrameSequence):
     PATH_FRAMES_DIR = (
         os.path.join("imgs", "lightning") if os.path.isdir("imgs")
         else os.path.join("..", "imgs", "lightning")
