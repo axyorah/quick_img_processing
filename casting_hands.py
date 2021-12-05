@@ -45,7 +45,6 @@ def get_args() -> Dict:
     return args
 
 
-
 class Announcer(Observable):
     def __init__(self):
         self.detection = Event()
@@ -121,6 +120,7 @@ class PerlinTriggerer(Triggerer):
 
     def resolve(self, frame: np.ndarray) -> None:
         self.effector.next()
+
 
 class SequenceTriggerer(Triggerer):
     """
@@ -213,7 +213,7 @@ def main():
     )
 
 
-    # get effect triggerers that observer `Announcer``
+    # get effect triggerers that observe `Announcer``
     announcer = Announcer()
 
     PerlinTriggerer(0, HaSEffect(), announcer)
