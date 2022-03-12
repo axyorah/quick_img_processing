@@ -2,7 +2,7 @@ setuptools==41.0.0
 pyyaml==5.4.1
 numpy==1.19.2
 matplotlib==3.4.2
-pillow==8.3.2
+pillow==9.0.1
 opencv-contrib-python==4.4.0.46
 dlib==19.21.0
 torch==1.9.0
